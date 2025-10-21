@@ -276,22 +276,28 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 							<h4 className="text-sm font-medium">Cost Information</h4>
 							<div className="grid grid-cols-2 gap-2 rounded-md border p-3 text-sm">
 								<div className="text-muted-foreground">Input Cost</div>
-								<div>{log.inputCost ? `$${log.inputCost}` : "$0"}</div>
+								<div>
+									{log.inputCost ? `$${log.inputCost.toFixed(8)}` : "$0"}
+								</div>
 								<div className="text-muted-foreground">Output Cost</div>
-								<div>{log.outputCost ? `$${log.outputCost}` : "$0"}</div>
+								<div>
+									{log.outputCost ? `$${log.outputCost.toFixed(8)}` : "$0"}
+								</div>
 								{!!log.cachedInputCost && Number(log.cachedInputCost) > 0 && (
 									<>
 										<div className="text-muted-foreground">
 											Cached Input Cost
 										</div>
-										<div className="">{`$${Number(log.cachedInputCost)}`}</div>
+										<div className="">{`$${Number(log.cachedInputCost).toFixed(8)}`}</div>
 									</>
 								)}
 								<div className="text-muted-foreground">Request Cost</div>
-								<div>{log.requestCost ? `$${log.requestCost}` : "$0"}</div>
+								<div>
+									{log.requestCost ? `$${log.requestCost.toFixed(8)}` : "$0"}
+								</div>
 								<div className="text-muted-foreground">Total Cost</div>
 								<div className="font-medium">
-									{log.cost ? `$${log.cost.toFixed(6)}` : "$0"}
+									{log.cost ? `$${log.cost.toFixed(8)}` : "$0"}
 								</div>
 								{log.discount && log.discount !== 1 && (
 									<>
