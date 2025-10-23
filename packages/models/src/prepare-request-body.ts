@@ -307,6 +307,7 @@ export async function prepareRequestBody(
 		case "xai":
 		case "groq":
 		case "deepseek":
+		case "canopywave":
 		case "perplexity":
 		case "novita":
 		case "moonshot":
