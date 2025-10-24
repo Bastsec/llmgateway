@@ -105,6 +105,17 @@ export function getProviderEndpoint(
 					process.env.LLM_AWS_BEDROCK_BASE_URL ||
 					"https://bedrock-runtime.us-east-1.amazonaws.com";
 				break;
+			case "azure": {
+				const resource =
+					providerKeyOptions?.azure_resource || process.env.LLM_AZURE_RESOURCE;
+				if (!resource) {
+					throw new Error(
+						"Azure resource is required - set via provider options or LLM_AZURE_RESOURCE env var",
+					);
+				}
+				url = `https://${resource}.openai.azure.com`;
+				break;
+			}
 			case "canopywave":
 				url = "https://inference.canopywave.io";
 				break;
@@ -151,6 +162,24 @@ export function getProviderEndpoint(
 				"us.";
 			const endpoint = stream ? "converse-stream" : "converse";
 			return `${url}/model/${prefix}${modelName}/${endpoint}`;
+		}
+		case "azure": {
+			const deploymentType =
+				providerKeyOptions?.azure_deployment_type ||
+				process.env.LLM_AZURE_DEPLOYMENT_TYPE ||
+				"ai-foundry";
+
+			if (deploymentType === "openai") {
+				// Traditional Azure (deployment-based)
+				const apiVersion =
+					providerKeyOptions?.azure_api_version ||
+					process.env.LLM_AZURE_API_VERSION ||
+					"2024-10-21";
+				return `${url}/openai/deployments/${modelName}/chat/completions?api-version=${apiVersion}`;
+			} else {
+				// Azure AI Foundry (unified endpoint)
+				return `${url}/openai/v1/chat/completions`;
+			}
 		}
 		case "openai":
 			// Use responses endpoint for reasoning models that support responses API

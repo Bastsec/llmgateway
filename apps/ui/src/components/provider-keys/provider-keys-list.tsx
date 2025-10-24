@@ -34,6 +34,7 @@ import { providers } from "@llmgateway/models";
 import { CreateProviderKeyDialog } from "./create-provider-key-dialog";
 
 import type { Organization } from "@/lib/types";
+import type { ProviderKeyOptions } from "@llmgateway/db";
 
 interface ProviderKeysListProps {
 	selectedOrganization: Organization | null;
@@ -45,11 +46,25 @@ interface ProviderKeysListProps {
 			provider: string;
 			name: string | null;
 			baseUrl: string | null;
+			options: ProviderKeyOptions | null;
 			status: "active" | "inactive" | "deleted" | null;
 			organizationId: string;
 			maskedToken: string;
 		}[];
 	};
+}
+
+function formatOptionLabel(key: string, value: string): string {
+	const labels: Record<string, string> = {
+		aws_bedrock_region_prefix: "Region",
+		azure_resource: "Resource",
+		azure_api_version: "API Version",
+		azure_deployment_type: "Deployment",
+		azure_validation_model: "Validation Model",
+	};
+
+	const label = labels[key] || key;
+	return `${label}: ${value}`;
 }
 
 export function ProviderKeysList({
@@ -173,7 +188,7 @@ export function ProviderKeysList({
 									)}
 								</div>
 								<div className="flex flex-col">
-									<div className="flex items-center gap-2">
+									<div className="flex items-center gap-2 flex-wrap">
 										<span className="font-medium">{provider.name}</span>
 										{hasKey && existingKey.name && (
 											<Badge variant="outline" className="text-xs">
@@ -185,6 +200,20 @@ export function ProviderKeysList({
 												{existingKey.baseUrl}
 											</Badge>
 										)}
+										{hasKey &&
+											existingKey.options &&
+											Object.entries(existingKey.options).map(
+												([key, value]) =>
+													value && (
+														<Badge
+															key={key}
+															variant="outline"
+															className="text-xs"
+														>
+															{formatOptionLabel(key, String(value))}
+														</Badge>
+													),
+											)}
 									</div>
 									{hasKey && (
 										<div className="flex items-center gap-2 mt-1">

@@ -8,6 +8,8 @@ import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import { Button } from "@/lib/components/button";
 import { Card, CardContent } from "@/lib/components/card";
 
+import type { ProviderKeyOptions } from "@llmgateway/db";
+
 interface ProviderKeysClientProps {
 	initialProviderKeysData?: {
 		providerKeys: {
@@ -17,6 +19,7 @@ interface ProviderKeysClientProps {
 			provider: string;
 			name: string | null;
 			baseUrl: string | null;
+			options: ProviderKeyOptions | null;
 			status: "active" | "inactive" | "deleted" | null;
 			organizationId: string;
 			maskedToken: string;
