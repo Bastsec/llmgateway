@@ -147,7 +147,9 @@ describe(
 				expect(res.status).toBe(200);
 				expect(json).toHaveProperty("providerKey");
 				expect(json.providerKey.provider).toBe(providerId);
-				expect(json.providerKey.token).toBe(envVarValue);
+				expect(json.providerKey.maskedToken).toBeDefined();
+				expect(json.providerKey.maskedToken).toContain("•");
+				expect(json.providerKey.token).toBeUndefined();
 
 				const providerKey = await db.query.providerKey.findFirst({
 					where: {
