@@ -1360,7 +1360,9 @@ chat.openapi(completions, async (c) => {
 			usedProvider,
 			providerKey?.baseUrl || undefined,
 			usedModel,
-			usedProvider === "google-ai-studio" ? usedToken : undefined,
+			usedProvider === "google-ai-studio" || usedProvider === "google-vertex"
+				? usedToken
+				: undefined,
 			stream,
 			supportsReasoning,
 			hasExistingToolCalls,
@@ -2007,6 +2009,7 @@ chat.openapi(completions, async (c) => {
 			let reasoningTokens = null;
 			let cachedTokens = null;
 			let streamingToolCalls = null;
+			let doneSent = false; // Track if [DONE] has been sent
 			let buffer = ""; // Buffer for accumulating partial data across chunks (string for SSE)
 			let binaryBuffer = new Uint8Array(0); // Buffer for binary event streams (AWS Bedrock)
 			let rawUpstreamData = ""; // Raw data received from upstream provider
@@ -2276,6 +2279,7 @@ chat.openapi(completions, async (c) => {
 								data: "[DONE]",
 								id: String(eventId++),
 							});
+							doneSent = true;
 
 							processedLength = eventEnd;
 						} else {
@@ -2359,7 +2363,10 @@ chat.openapi(completions, async (c) => {
 							}
 
 							// For Google providers, add usage information when available
-							if (usedProvider === "google-ai-studio") {
+							if (
+								usedProvider === "google-ai-studio" ||
+								usedProvider === "google-vertex"
+							) {
 								const usage = extractTokenUsage(
 									data,
 									usedProvider,
@@ -2442,6 +2449,7 @@ chat.openapi(completions, async (c) => {
 							// use raw data. For others (like aws-bedrock), use transformed OpenAI format.
 							const contentChunk = extractContent(
 								usedProvider === "google-ai-studio" ||
+									usedProvider === "google-vertex" ||
 									usedProvider === "anthropic"
 									? data
 									: transformedData,
@@ -2462,6 +2470,7 @@ chat.openapi(completions, async (c) => {
 							// use raw data. For others, use transformed OpenAI format.
 							const reasoningContentChunk = extractReasoning(
 								usedProvider === "google-ai-studio" ||
+									usedProvider === "google-vertex" ||
 									usedProvider === "anthropic"
 									? data
 									: transformedData,
@@ -2520,6 +2529,7 @@ chat.openapi(completions, async (c) => {
 							// Handle provider-specific finish reason extraction
 							switch (usedProvider) {
 								case "google-ai-studio":
+								case "google-vertex":
 									if (data.candidates?.[0]?.finishReason) {
 										const googleFinishReason = data.candidates[0].finishReason;
 										// Check if there are function calls in this response
@@ -2638,6 +2648,7 @@ chat.openapi(completions, async (c) => {
 							data: "[DONE]",
 							id: String(eventId++),
 						});
+						doneSent = true;
 					} catch (sseError) {
 						logger.error(
 							"Failed to send error SSE",
@@ -2756,6 +2767,7 @@ chat.openapi(completions, async (c) => {
 							data: "[DONE]",
 							id: String(eventId++),
 						});
+						doneSent = true;
 					} catch (sseError) {
 						logger.error(
 							"Failed to send upstream error SSE",
@@ -2825,8 +2837,17 @@ chat.openapi(completions, async (c) => {
 								data: JSON.stringify(finalUsageChunk),
 								id: String(eventId++),
 							});
+						} catch (error) {
+							logger.error(
+								"Error sending final usage chunk",
+								error instanceof Error ? error : new Error(String(error)),
+							);
+						}
+					}
 
-							// Send final [DONE] if we haven't already
+					// Always send [DONE] at the end of streaming if not already sent
+					if (!doneSent) {
+						try {
 							await writeSSEAndCache({
 								event: "done",
 								data: "[DONE]",
@@ -2834,7 +2855,7 @@ chat.openapi(completions, async (c) => {
 							});
 						} catch (error) {
 							logger.error(
-								"Error sending final usage chunk",
+								"Error sending [DONE] event",
 								error instanceof Error ? error : new Error(String(error)),
 							);
 						}
