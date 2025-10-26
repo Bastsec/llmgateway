@@ -25,6 +25,8 @@ export const providerLogoUrls: Partial<
 	routeway: ProviderIcons.routeway,
 	"routeway-discount": ProviderIcons.routeway,
 	nanogpt: ProviderIcons.nanogpt,
+	"aws-bedrock": ProviderIcons["aws-bedrock"],
+	azure: ProviderIcons.azure,
 };
 
 export const getProviderLogoDarkModeClasses = () => {
