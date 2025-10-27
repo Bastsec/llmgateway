@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -32,15 +32,27 @@ const formSchema = z.object({
 		.min(8, { message: "Password must be at least 8 characters" }),
 });
 
+function getSafeRedirectUrl(url: string | null): string {
+	if (!url) {
+		return "/";
+	}
+	if (url.startsWith("/") && !url.startsWith("//")) {
+		return url;
+	}
+	return "/";
+}
+
 export default function Signup() {
+	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const posthog = usePostHog();
 	const [isLoading, setIsLoading] = useState(false);
 	const { signUp } = useAuth();
+	const returnUrl = getSafeRedirectUrl(searchParams.get("returnUrl"));
 
 	useUser({
-		redirectTo: "/",
+		redirectTo: returnUrl,
 		redirectWhen: "authenticated",
 	});
 
@@ -81,7 +93,7 @@ export default function Signup() {
 						description:
 							"Please check your email to verify your account before signing in.",
 					});
-					router.push("/onboarding");
+					router.push(returnUrl);
 				},
 				onError: (ctx) => {
 					toast.error(ctx.error.message || "Failed to sign up", {

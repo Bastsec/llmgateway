@@ -51,7 +51,7 @@ export default function Login() {
 	const returnUrl = getSafeRedirectUrl(searchParams.get("returnUrl"));
 
 	useUser({
-		redirectTo: "/",
+		redirectTo: returnUrl,
 		redirectWhen: "authenticated",
 	});
 
