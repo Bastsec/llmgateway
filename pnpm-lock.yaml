@@ -39,8 +39,8 @@ importers:
         specifier: 16.5.0
         version: 16.5.0
       esbuild-fix-imports-plugin:
-        specifier: 1.0.22
-        version: 1.0.22
+        specifier: 1.0.23
+        version: 1.0.23
       eslint:
         specifier: ^9.34.0
         version: 9.34.0(jiti@2.6.1)
@@ -5820,8 +5820,8 @@ packages:
   esast-util-from-js@2.0.1:
     resolution: {integrity: sha512-8Ja+rNJ0Lt56Pcf3TAmpBZjmx8ZcK5Ts4cAzIOjsjevg9oSXJnl6SUQ2EevU8tv3h6ZLWmoKL5H4fgWvdvfETw==}
 
-  esbuild-fix-imports-plugin@1.0.22:
-    resolution: {integrity: sha512-8Q8FDsnZgDwa+dHu0/bpU6gOmNrxmqgsIG1s7p1xtv6CQccRKc3Ja8o09pLNwjFgkOWtmwjS0bZmSWN7ATgdJQ==}
+  esbuild-fix-imports-plugin@1.0.23:
+    resolution: {integrity: sha512-zDn2Mq3OnW9qNm9FrHDeE0FePgIRIaH9EWpHOGsJZFPfyPSNqzvCK/x9EZJ5eHEEyXe8ZGdb5CjDpzqkyAqcCg==}
 
   esbuild-register@3.6.0:
     resolution: {integrity: sha512-H2/S7Pm8a9CL1uhp9OvjwrBh5Pvx0H8qVOxNu8Wed9Y7qv56MPtq+GGM8RJpq6glYJn9Wspr8uw7l55uyinNeg==}
@@ -14768,7 +14768,7 @@ snapshots:
       esast-util-from-estree: 2.0.0
       vfile-message: 4.0.3
 
-  esbuild-fix-imports-plugin@1.0.22: {}
+  esbuild-fix-imports-plugin@1.0.23: {}
 
   esbuild-register@3.6.0(esbuild@0.25.9):
     dependencies:
