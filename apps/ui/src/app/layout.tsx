@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 const inter = Inter({
-	variable: "--font-inter-sans",
+	variable: "--font-inter",
 	subsets: ["latin"],
 	display: "swap",
 });

@@ -7,9 +7,13 @@
 
 body {
 	@apply m-0;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 :root {
+	--font-mono: var(--font-geist-mono);
+	--font-sans: var(--font-inter);
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.141 0.005 285.823);
 	--card: oklch(1 0 0);
