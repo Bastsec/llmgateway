@@ -235,7 +235,7 @@ export function ModelCard({
 										<div className="text-xs text-muted-foreground mb-2">
 											Pricing
 										</div>
-										<div className="grid grid-cols-2 gap-3">
+										<div className="grid grid-cols-3 gap-3">
 											<div className="space-y-1">
 												<div className="text-xs text-muted-foreground">
 													Input
@@ -258,6 +258,37 @@ export function ModelCard({
 														<span className="inline-flex items-baseline gap-1">
 															{formatPrice(
 																provider.inputPrice,
+																provider.discount,
+															)}
+															<span className="text-muted-foreground text-xs">
+																/M
+															</span>
+														</span>
+													)}
+												</div>
+											</div>
+											<div className="space-y-1">
+												<div className="text-xs text-muted-foreground">
+													Cached
+												</div>
+												<div className="font-semibold text-foreground text-sm">
+													{typeof formatPrice(
+														provider.cachedInputPrice,
+														provider.discount,
+													) === "string" ? (
+														<>
+															{formatPrice(
+																provider.cachedInputPrice,
+																provider.discount,
+															)}
+															<span className="text-muted-foreground text-xs ml-1">
+																/M
+															</span>
+														</>
+													) : (
+														<span className="inline-flex items-baseline gap-1">
+															{formatPrice(
+																provider.cachedInputPrice,
 																provider.discount,
 															)}
 															<span className="text-muted-foreground text-xs">

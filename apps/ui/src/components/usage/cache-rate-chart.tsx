@@ -23,26 +23,29 @@ interface CacheRateChartProps {
 }
 
 const CustomTooltip = ({
-	active: _active,
+	active,
 	payload,
 	label,
 }: TooltipProps<number, string> & {
 	payload: { value: number }[];
 	label: string;
 }) => {
-	return (
-		<div className="rounded-lg border bg-popover text-popover-foreground p-2 shadow-sm">
-			<p className="font-medium">
-				{label && format(parseISO(label), "MMM d, yyyy")}
-			</p>
-			<p className="text-sm">
-				<span className="font-medium">
-					{Number(payload[0].value).toFixed(2)}%
-				</span>{" "}
-				Cache Rate
-			</p>
-		</div>
-	);
+	if (active && payload && payload.length) {
+		return (
+			<div className="rounded-lg border bg-popover text-popover-foreground p-2 shadow-sm">
+				<p className="font-medium">
+					{label && format(parseISO(label), "MMM d, yyyy")}
+				</p>
+				<p className="text-sm">
+					<span className="font-medium">
+						{Number(payload[0].value).toFixed(2)}%
+					</span>{" "}
+					Cache Rate
+				</p>
+			</div>
+		);
+	}
+	return null;
 };
 
 export function CacheRateChart({

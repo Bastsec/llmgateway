@@ -82,7 +82,8 @@ type SortField =
 	| "providers"
 	| "contextSize"
 	| "inputPrice"
-	| "outputPrice";
+	| "outputPrice"
+	| "cachedInputPrice";
 type SortDirection = "asc" | "desc";
 
 export function AllModels({ children }: { children: React.ReactNode }) {
@@ -385,6 +386,24 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 						aOutputPrices.length > 0 ? Math.min(...aOutputPrices) : Infinity;
 					bValue =
 						bOutputPrices.length > 0 ? Math.min(...bOutputPrices) : Infinity;
+					break;
+				}
+				case "cachedInputPrice": {
+					// Get the min cached input price among all providers for this model
+					const aCachedInputPrices = a.providerDetails
+						.map((p) => p.provider.cachedInputPrice)
+						.filter((p) => p !== undefined);
+					const bCachedInputPrices = b.providerDetails
+						.map((p) => p.provider.cachedInputPrice)
+						.filter((p) => p !== undefined);
+					aValue =
+						aCachedInputPrices.length > 0
+							? Math.min(...aCachedInputPrices)
+							: Infinity;
+					bValue =
+						bCachedInputPrices.length > 0
+							? Math.min(...bCachedInputPrices)
+							: Infinity;
 					break;
 				}
 				default:
@@ -840,7 +859,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 
 	const renderTableView = () => (
 		<div className="rounded-md border">
-			<div className="relative w-full overflow-x-auto sm:overflow-x-hidden">
+			<div className="relative w-full overflow-x-auto sm:overflow-x-scroll">
 				<Table className="min-w-[700px] sm:min-w-0">
 					<TableHeader className="top-0 z-10 bg-background/95 backdrop-blur">
 						<TableRow>
@@ -887,6 +906,16 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 							<TableHead className="text-center bg-background/95 backdrop-blur-sm border-b">
 								<Button
 									variant="ghost"
+									onClick={() => handleSort("cachedInputPrice")}
+									className="h-auto p-0 font-semibold hover:bg-transparent"
+								>
+									Cached Input Price
+									{getSortIcon("cachedInputPrice")}
+								</Button>
+							</TableHead>
+							<TableHead className="text-center bg-background/95 backdrop-blur-sm border-b">
+								<Button
+									variant="ghost"
 									onClick={() => handleSort("outputPrice")}
 									className="h-auto p-0 font-semibold hover:bg-transparent"
 								>
@@ -915,7 +944,9 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 								<TableCell className="font-medium">
 									<div className="space-y-1">
 										<div className="font-semibold text-sm flex items-center gap-2">
-											{model.name || model.id}
+											<div className="truncate max-w-[150px]">
+												{model.name || model.id}
+											</div>
 											{shouldShowStabilityWarning(model.stability) && (
 												<AlertTriangle className="h-4 w-4 text-orange-500" />
 											)}
@@ -936,7 +967,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 											</Badge>
 										</div>
 										<div className="flex items-center gap-1">
-											<code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+											<code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]">
 												{model.id}
 											</code>
 											<Button
@@ -1032,6 +1063,35 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 													<div className="flex gap-1 flex-row justify-center">
 														{formatPrice(
 															provider.inputPrice,
+															provider.discount,
+														)}
+														<span className="text-muted-foreground">/M</span>
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+								</TableCell>
+
+								<TableCell className="text-center">
+									<div className="space-y-1">
+										{model.providerDetails.map(({ provider }) => (
+											<div
+												key={provider.providerId}
+												className="text-sm font-mono"
+											>
+												{typeof formatPrice(
+													provider.cachedInputPrice,
+													provider.discount,
+												) === "string" ? (
+													formatPrice(
+														provider.cachedInputPrice,
+														provider.discount,
+													) + "/M"
+												) : (
+													<div className="flex gap-1 flex-row justify-center">
+														{formatPrice(
+															provider.cachedInputPrice,
 															provider.discount,
 														)}
 														<span className="text-muted-foreground">/M</span>

@@ -13,7 +13,7 @@ import { notFound } from "next/navigation";
 import Footer from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { CopyModelName } from "@/components/models/copy-model-name";
-import { ProviderCard } from "@/components/models/provider-card";
+import { ModelProviderCard } from "@/components/models/model-provider-card";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
 import { getConfig } from "@/lib/config-server";
@@ -288,7 +288,7 @@ export default async function ModelPage({ params }: PageProps) {
 
 						<div className="space-y-4">
 							{modelProviders.map((provider) => (
-								<ProviderCard
+								<ModelProviderCard
 									key={provider.providerId}
 									provider={provider}
 									modelName={decodedName}
