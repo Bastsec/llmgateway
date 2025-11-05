@@ -117,13 +117,13 @@ export const zaiModels = [
 		id: "glm-4.5-flash",
 		name: "GLM-4.5 Flash",
 		family: "glm",
+		free: true,
 		providers: [
 			{
 				providerId: "zai",
 				modelName: "glm-4.5-flash",
-				inputPrice: 3.2 / 1e6,
-				outputPrice: 12.8 / 1e6,
-				discount: 0.1,
+				inputPrice: 0,
+				outputPrice: 0,
 				requestPrice: 0,
 				contextSize: 128000,
 				maxOutput: undefined,
