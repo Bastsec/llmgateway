@@ -4,7 +4,6 @@ import {
 	ArrowUpRight,
 	CreditCard,
 	Zap,
-	Plus,
 	Key,
 	KeyRound,
 	Activity,
@@ -175,12 +174,6 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 					</div>
 					<div className="flex items-center space-x-2">
 						{selectedOrganization && <TopUpCreditsButton />}
-						<Button asChild>
-							<Link href={buildUrl("provider-keys")} prefetch={true}>
-								<Plus className="mr-2 h-4 w-4" />
-								Add Provider
-							</Link>
-						</Button>
 					</div>
 				</div>
 
