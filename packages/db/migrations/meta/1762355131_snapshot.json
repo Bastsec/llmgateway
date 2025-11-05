@@ -1,5 +1,5 @@
 {
-  "id": "26acb8bd-5c2e-417c-acd6-8f05d0ec9bf5",
+  "id": "7443d5d8-9bcd-4081-bede-6faab21e64ab",
   "prevId": "3fef0f0b-2baa-481d-9fe7-92441ab314d3",
   "version": "7",
   "dialect": "postgresql",
@@ -2956,15 +2956,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "transaction_stripe_invoice_id_unique": {
-          "name": "transaction_stripe_invoice_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "stripe_invoice_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

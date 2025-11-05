@@ -178,7 +178,6 @@ export const transaction = pgTable(
 	},
 	(table) => [
 		index("transaction_organization_id_idx").on(table.organizationId),
-		unique("transaction_stripe_invoice_id_unique").on(table.stripeInvoiceId),
 	],
 );
 
