@@ -12,6 +12,7 @@ import {
 	generateTrialStartedEmailHtml,
 	sendTransactionalEmail,
 } from "./utils/email.js";
+import { generateAndEmailInvoice } from "./utils/invoice.js";
 
 import type { ServerTypes } from "./vars.js";
 import type Stripe from "stripe";
@@ -284,16 +285,64 @@ async function handleCheckoutSessionCompleted(
 			`Successfully upgraded organization ${organizationId} to pro plan via checkout. Updated rows: ${result.length}`,
 		);
 
-		// Create transaction record for subscription start
-		await db.insert(tables.transaction).values({
-			organizationId,
-			type: "subscription_start",
-			amount: ((session.amount_total || 0) / 100).toString(),
-			currency: (session.currency || "USD").toUpperCase(),
-			status: "completed",
-			stripeInvoiceId: session.invoice as string,
-			description: "Pro subscription started via Stripe Checkout",
-		});
+		// Check for existing transaction to avoid duplicates
+		const stripeInvoiceId = session.invoice as string | undefined;
+		const existing = stripeInvoiceId
+			? await db.query.transaction.findFirst({
+					where: {
+						stripeInvoiceId: {
+							eq: stripeInvoiceId,
+						},
+					},
+				})
+			: null;
+
+		if (!existing) {
+			// Create transaction record for subscription start
+			const [transaction] = await db
+				.insert(tables.transaction)
+				.values({
+					organizationId,
+					type: "subscription_start",
+					amount: ((session.amount_total || 0) / 100).toString(),
+					currency: (session.currency || "USD").toUpperCase(),
+					status: "completed",
+					stripeInvoiceId: stripeInvoiceId,
+					description: "Pro subscription started via Stripe Checkout",
+				})
+				.returning();
+
+			// Generate and email invoice
+			try {
+				await generateAndEmailInvoice({
+					invoiceNumber: transaction.id,
+					invoiceDate: new Date(),
+					organizationName: organization.name,
+					billingEmail: organization.billingEmail,
+					billingCompany: organization.billingCompany,
+					billingAddress: organization.billingAddress,
+					billingTaxId: organization.billingTaxId,
+					billingNotes: organization.billingNotes,
+					lineItems: [
+						{
+							description: "Pro Subscription",
+							amount: (session.amount_total || 0) / 100,
+						},
+					],
+					currency: (session.currency || "USD").toUpperCase(),
+				});
+			} catch (e) {
+				logger.error(
+					"Invoice email failed (checkout); suppressing webhook failure",
+					e as Error,
+				);
+			}
+		} else {
+			logger.info(
+				"Subscription transaction already exists for invoice; skipping duplicate insert/email",
+				{ stripeInvoiceId },
+			);
+		}
 
 		// Track subscription creation in PostHog
 		posthog.groupIdentify({
@@ -361,6 +410,8 @@ async function handlePaymentIntentSucceeded(
 
 	// Check if this is an auto top-up with an existing pending transaction
 	const transactionId = metadata?.transactionId;
+	let completedTransaction;
+
 	if (transactionId) {
 		// Update existing pending transaction
 		const updatedTransaction = await db
@@ -379,12 +430,32 @@ async function handlePaymentIntentSucceeded(
 			logger.info(
 				`Updated pending transaction ${transactionId} to completed for organization ${organizationId}`,
 			);
+			completedTransaction = updatedTransaction;
 		} else {
 			logger.warn(
 				`Could not find pending transaction ${transactionId} for organization ${organizationId}`,
 			);
 			// Fallback: create new transaction record
-			await db.insert(tables.transaction).values({
+			const [newTransaction] = await db
+				.insert(tables.transaction)
+				.values({
+					organizationId,
+					type: "credit_topup",
+					creditAmount: creditAmount.toString(),
+					amount: totalAmountInDollars.toString(),
+					currency: paymentIntent.currency.toUpperCase(),
+					status: "completed",
+					stripePaymentIntentId: paymentIntent.id,
+					description: "Credit top-up via Stripe (fallback)",
+				})
+				.returning();
+			completedTransaction = newTransaction;
+		}
+	} else {
+		// Create new transaction record (for manual top-ups or old auto top-ups)
+		const [newTransaction] = await db
+			.insert(tables.transaction)
+			.values({
 				organizationId,
 				type: "credit_topup",
 				creditAmount: creditAmount.toString(),
@@ -392,22 +463,30 @@ async function handlePaymentIntentSucceeded(
 				currency: paymentIntent.currency.toUpperCase(),
 				status: "completed",
 				stripePaymentIntentId: paymentIntent.id,
-				description: "Credit top-up via Stripe (fallback)",
-			});
-		}
-	} else {
-		// Create new transaction record (for manual top-ups or old auto top-ups)
-		await db.insert(tables.transaction).values({
-			organizationId,
-			type: "credit_topup",
-			creditAmount: creditAmount.toString(),
-			amount: totalAmountInDollars.toString(),
-			currency: paymentIntent.currency.toUpperCase(),
-			status: "completed",
-			stripePaymentIntentId: paymentIntent.id,
-			description: "Credit top-up via Stripe",
-		});
+				description: "Credit top-up via Stripe",
+			})
+			.returning();
+		completedTransaction = newTransaction;
 	}
+
+	// Generate and email invoice for credit purchase
+	await generateAndEmailInvoice({
+		invoiceNumber: completedTransaction.id,
+		invoiceDate: new Date(),
+		organizationName: organization.name,
+		billingEmail: organization.billingEmail,
+		billingCompany: organization.billingCompany,
+		billingAddress: organization.billingAddress,
+		billingTaxId: organization.billingTaxId,
+		billingNotes: organization.billingNotes,
+		lineItems: [
+			{
+				description: `Credit Top-up ($${creditAmount})`,
+				amount: totalAmountInDollars,
+			},
+		],
+		currency: paymentIntent.currency.toUpperCase(),
+	});
 
 	posthog.groupIdentify({
 		groupType: "organization",
@@ -625,16 +704,19 @@ async function handleInvoicePaymentSucceeded(
 	);
 
 	// Create transaction record for subscription start
-	await db.insert(tables.transaction).values({
-		organizationId,
-		type: "subscription_start",
-		amount: (invoice.amount_paid / 100).toString(),
-		currency: invoice.currency.toUpperCase(),
-		status: "completed",
-		stripePaymentIntentId: (invoice as any).payment_intent,
-		stripeInvoiceId: invoice.id,
-		description: "Pro subscription started",
-	});
+	const [transaction] = await db
+		.insert(tables.transaction)
+		.values({
+			organizationId,
+			type: "subscription_start",
+			amount: (invoice.amount_paid / 100).toString(),
+			currency: invoice.currency.toUpperCase(),
+			status: "completed",
+			stripePaymentIntentId: (invoice as any).payment_intent,
+			stripeInvoiceId: invoice.id,
+			description: "Pro subscription started",
+		})
+		.returning();
 
 	// Update organization to pro plan and mark subscription as not cancelled
 	try {
@@ -654,6 +736,24 @@ async function handleInvoicePaymentSucceeded(
 		logger.info(
 			`Verification - organization plan is now: ${result && result[0]?.plan}`,
 		);
+
+		// Generate and email invoice
+		await generateAndEmailInvoice({
+			invoiceNumber: transaction.id,
+			invoiceDate: new Date(),
+			organizationName: organization.name,
+			billingEmail: organization.billingEmail,
+			billingCompany: organization.billingCompany,
+			billingAddress: organization.billingAddress,
+			billingNotes: organization.billingNotes,
+			lineItems: [
+				{
+					description: "Pro Subscription",
+					amount: invoice.amount_paid / 100,
+				},
+			],
+			currency: invoice.currency.toUpperCase(),
+		});
 
 		// Track subscription creation in PostHog
 		posthog.groupIdentify({

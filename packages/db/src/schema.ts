@@ -114,6 +114,10 @@ export const organization = pgTable("organization", {
 		.$onUpdate(() => new Date()),
 	name: text().notNull(),
 	billingEmail: text().notNull(),
+	billingCompany: text(),
+	billingAddress: text(),
+	billingTaxId: text(),
+	billingNotes: text(),
 	stripeCustomerId: text().unique(),
 	stripeSubscriptionId: text().unique(),
 	credits: decimal().notNull().default("0"),
@@ -174,6 +178,7 @@ export const transaction = pgTable(
 	},
 	(table) => [
 		index("transaction_organization_id_idx").on(table.organizationId),
+		unique("transaction_stripe_invoice_id_unique").on(table.stripeInvoiceId),
 	],
 );
 

@@ -1949,6 +1949,10 @@ export interface paths {
                                 updatedAt: string;
                                 name: string;
                                 billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
@@ -1995,6 +1999,10 @@ export interface paths {
                                 updatedAt: string;
                                 name: string;
                                 billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
@@ -2142,6 +2150,10 @@ export interface paths {
                         name?: string;
                         /** Format: email */
                         billingEmail?: string;
+                        billingCompany?: string;
+                        billingAddress?: string;
+                        billingTaxId?: string;
+                        billingNotes?: string;
                         /** @enum {string} */
                         retentionLevel?: "retain" | "none";
                         autoTopUpEnabled?: boolean;
@@ -2165,6 +2177,10 @@ export interface paths {
                                 updatedAt: string;
                                 name: string;
                                 billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
