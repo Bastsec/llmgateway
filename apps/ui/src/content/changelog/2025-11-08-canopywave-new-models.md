@@ -15,28 +15,25 @@ We're excited to announce three new models from **CanopyWave** with an exclusive
 
 ## 🎯 New Models Available
 
-### **GLM-4.6** - Advanced Reasoning
+### **GLM-4.6** - Advanced Model with Reasoning
 
 - **Model ID**: `glm-4.6`
-- **Provider**: `canopywave/zai/glm-4.6`
 - **Context Window**: 202,752 tokens
-- **Pricing**: $0.45 per 1M input tokens / $1.50 per 1M output tokens (75% off)
+- **Pricing**: ~~$0.45~~ **$0.11** per 1M input tokens / ~~$1.50~~ **$0.38** per 1M output tokens (75% off)
 - Enhanced reasoning and tool calling capabilities
 
 ### **Qwen3 Coder** - Specialized Coding Model
 
 - **Model ID**: `qwen3-coder`
-- **Provider**: `canopywave/qwen/qwen3-coder`
 - **Context Window**: 262,000 tokens
-- **Pricing**: $0.22 per 1M input tokens / $0.95 per 1M output tokens (75% off)
+- **Pricing**: ~~$0.22~~ **$0.06** per 1M input tokens / ~~$0.95~~ **$0.24** per 1M output tokens (75% off)
 - Advanced coding capabilities with massive context window
 
 ### **MiniMax M2** - High-Performance Chat
 
 - **Model ID**: `minimax-m2`
-- **Provider**: `canopywave/minimax/minimax-m2`
 - **Context Window**: 196,608 tokens
-- **Pricing**: $0.25 per 1M input tokens / $1.00 per 1M output tokens (75% off)
+- **Pricing**: ~~$0.25~~ **$0.06** per 1M input tokens / ~~$1.00~~ **$0.25** per 1M output tokens (75% off)
 - Powerful conversational AI with large context support
 
 ## 🚀 Getting Started
@@ -53,10 +50,10 @@ curl -X POST https://api.llmgateway.io/v1/chat/completions \
   }'
 ```
 
-✅ **75% Discount** - Exclusive pricing for all three models
-✅ **Large Context Windows** - 196k-262k tokens
-✅ **Full Feature Support** - Streaming, tools, JSON output
-✅ **Instant Access** - Available now
+- ✅ **75% Discount** - Exclusive pricing for all three models
+- ✅ **Large Context Windows** - 196k-262k tokens
+- ✅ **Full Feature Support** - Streaming, tools, JSON output
+- ✅ **Instant Access** - Available now
 
 ---
 
