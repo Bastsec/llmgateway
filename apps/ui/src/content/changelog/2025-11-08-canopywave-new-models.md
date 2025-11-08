@@ -7,8 +7,8 @@ summary: "CanopyWave brings Qwen3 Coder, MiniMax M2, and GLM-4.6 to LLM Gateway 
 image:
   src: "/changelog/canopywave75-off.png"
   alt: "CanopyWave: 3 New Models with 75% Off"
-  width: 2046
-  height: 1102
+  width: 1768
+  height: 677
 ---
 
 We're excited to announce three new models from **CanopyWave** with an exclusive **75% discount** on all models!
