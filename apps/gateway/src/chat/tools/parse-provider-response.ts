@@ -160,10 +160,7 @@ export function parseProviderResponse(
 				logger.error(
 					"[parse-provider-response] Google response has parts but no text extracted",
 					{
-						partsCount: parts.length,
-						partsStructure: JSON.stringify(parts, null, 2),
-						candidatesCount: json.candidates?.length || 0,
-						firstCandidate: JSON.stringify(json.candidates?.[0], null, 2),
+						json,
 					},
 				);
 			}
