@@ -157,7 +157,7 @@ export function parseProviderResponse(
 
 			// Debug logging to identify parsing issues
 			if (!content && !reasoningContent && parts.length > 0) {
-				logger.error(
+				logger.warn(
 					"[parse-provider-response] Google response has parts but no text extracted",
 					{
 						json,
