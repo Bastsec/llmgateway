@@ -35,6 +35,7 @@ export const metaModels = [
 			},
 			{
 				providerId: "inference.net",
+				stability: "unstable",
 				modelName: "meta-llama/llama-3.1-8b-instruct/fp-8",
 				inputPrice: 0.07 / 1e6,
 				outputPrice: 0.33 / 1e6,
@@ -88,6 +89,7 @@ export const metaModels = [
 		providers: [
 			{
 				providerId: "inference.net",
+				stability: "unstable",
 				modelName: "meta-llama/llama-3.2-11b-instruct/fp-16",
 				inputPrice: 0.07 / 1e6,
 				outputPrice: 0.33 / 1e6,
