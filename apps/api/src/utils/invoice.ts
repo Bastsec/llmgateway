@@ -4,6 +4,8 @@ import { logger } from "@llmgateway/logger";
 
 import { sendTransactionalEmail } from "./email.js";
 
+const invoiceFrom = process.env.INVOICE_FROM || "Fake Company\\nUnited States";
+
 function escapeHtml(unsafe: string): string {
 	return unsafe
 		.replace(/&/g, "&amp;")
@@ -66,35 +68,60 @@ export function generateInvoicePDF(data: InvoiceData): Buffer {
 	);
 
 	yPos += 15;
+	const fromYPos = yPos;
+
+	// Render FROM column (left side)
 	doc.setFontSize(12);
 	doc.setFont("helvetica", "bold");
-	doc.text("BILL TO:", 20, yPos);
+	doc.text("FROM:", 20, yPos);
 	yPos += 7;
 	doc.setFontSize(10);
 	doc.setFont("helvetica", "normal");
 
+	const fromLines = invoiceFrom.replace(/\\n/g, "\n").split("\n");
+	for (const line of fromLines) {
+		doc.text(line, 20, yPos);
+		yPos += 6;
+	}
+	const fromEndY = yPos;
+
+	// Render BILL TO column (right side)
+	yPos = fromYPos;
+	doc.setFontSize(12);
+	doc.setFont("helvetica", "bold");
+	doc.text("BILL TO:", pageWidth / 2 + 10, yPos);
+	yPos += 7;
+	doc.setFontSize(10);
+	doc.setFont("helvetica", "normal");
+
+	const billToX = pageWidth / 2 + 10;
+
 	if (data.billingCompany) {
-		doc.text(data.billingCompany, 20, yPos);
+		doc.text(data.billingCompany, billToX, yPos);
 		yPos += 6;
 	}
 
-	doc.text(organizationName, 20, yPos);
+	doc.text(organizationName, billToX, yPos);
 	yPos += 6;
-	doc.text(billingEmail, 20, yPos);
+	doc.text(billingEmail, billToX, yPos);
 	yPos += 6;
 
 	if (data.billingAddress) {
 		const addressLines = data.billingAddress.split("\n");
 		for (const line of addressLines) {
-			doc.text(line, 20, yPos);
+			doc.text(line, billToX, yPos);
 			yPos += 6;
 		}
 	}
 
 	if (data.billingTaxId) {
-		doc.text(`Tax ID: ${data.billingTaxId}`, 20, yPos);
+		doc.text(`Tax ID: ${data.billingTaxId}`, billToX, yPos);
 		yPos += 6;
 	}
+	const billToEndY = yPos;
+
+	// Set yPos to the bottom of the taller column
+	yPos = Math.max(fromEndY, billToEndY);
 
 	yPos += 10;
 	doc.setFontSize(12);
@@ -134,6 +161,15 @@ export function generateInvoicePDF(data: InvoiceData): Buffer {
 	doc.text(`${data.currency} ${total.toFixed(2)}`, pageWidth - 20, yPos, {
 		align: "right",
 	});
+
+	yPos += 15;
+	doc.setFontSize(9);
+	doc.setFont("helvetica", "italic");
+	doc.text(
+		"If applicable, customer should account for the respective VAT reverse charge.",
+		20,
+		yPos,
+	);
 
 	if (data.billingNotes) {
 		yPos += 20;

@@ -47,7 +47,7 @@ describe("generateInvoicePDF", () => {
 			billingCompany: "Example Corp",
 			billingAddress: "123 Main St\nSuite 100\nSan Francisco, CA 94105",
 			billingTaxId: "TAX-123456",
-			billingNotes: "Payment due within 30 days\nThank you for your business",
+			billingNotes: "Custom notes go here.",
 		};
 
 		const pdfBuffer = generateInvoicePDF(dataWithOptionalFields);
@@ -247,6 +247,24 @@ describe("generateInvoicePDF", () => {
 		expect(pdfContent).toContain("INV-2025-001");
 		expect(pdfContent).toContain("Test Organization");
 		expect(pdfContent).toContain("billing@example.com");
+	});
+
+	it("includes FROM section with default company information", () => {
+		const pdfBuffer = generateInvoicePDF(baseInvoiceData);
+		const pdfContent = pdfBuffer.toString("latin1");
+
+		expect(pdfContent).toContain("FROM:");
+		expect(pdfContent).toContain("Fake Company");
+		expect(pdfContent).toContain("United States");
+	});
+
+	it("includes VAT reverse charge note", () => {
+		const pdfBuffer = generateInvoicePDF(baseInvoiceData);
+		const pdfContent = pdfBuffer.toString("latin1");
+
+		expect(pdfContent).toContain(
+			"If applicable, customer should account for the respective VAT reverse charge.",
+		);
 	});
 
 	it("includes line item descriptions and amounts", () => {
