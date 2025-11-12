@@ -290,6 +290,7 @@ async function handleCheckoutSessionCompleted(
 			type: "subscription_start",
 			amount: ((session.amount_total || 0) / 100).toString(),
 			currency: (session.currency || "USD").toUpperCase(),
+			provider: "stripe",
 			status: "completed",
 			stripeInvoiceId: session.invoice as string,
 			description: "Pro subscription started via Stripe Checkout",
@@ -390,6 +391,7 @@ async function handlePaymentIntentSucceeded(
 				creditAmount: creditAmount.toString(),
 				amount: totalAmountInDollars.toString(),
 				currency: paymentIntent.currency.toUpperCase(),
+				provider: "stripe",
 				status: "completed",
 				stripePaymentIntentId: paymentIntent.id,
 				description: "Credit top-up via Stripe (fallback)",
@@ -403,6 +405,7 @@ async function handlePaymentIntentSucceeded(
 			creditAmount: creditAmount.toString(),
 			amount: totalAmountInDollars.toString(),
 			currency: paymentIntent.currency.toUpperCase(),
+			provider: "stripe",
 			status: "completed",
 			stripePaymentIntentId: paymentIntent.id,
 			description: "Credit top-up via Stripe",
@@ -490,6 +493,7 @@ async function handlePaymentIntentFailed(
 				creditAmount: creditAmount ? creditAmount.toString() : null,
 				amount: totalAmountInDollars.toString(),
 				currency: paymentIntent.currency.toUpperCase(),
+				provider: "stripe",
 				status: "failed",
 				stripePaymentIntentId: paymentIntent.id,
 				description: `Credit top-up failed via Stripe (fallback): ${paymentIntent.last_payment_error?.message || "Unknown error"}`,
@@ -503,6 +507,7 @@ async function handlePaymentIntentFailed(
 			creditAmount: creditAmount ? creditAmount.toString() : null,
 			amount: totalAmountInDollars.toString(),
 			currency: paymentIntent.currency.toUpperCase(),
+			provider: "stripe",
 			status: "failed",
 			stripePaymentIntentId: paymentIntent.id,
 			description: `Credit top-up failed via Stripe: ${paymentIntent.last_payment_error?.message || "Unknown error"}`,
@@ -561,11 +566,16 @@ async function handleSetupIntentSucceeded(
 
 	const isDefault = existingPaymentMethods.length === 0;
 
+	const stripeCard = paymentMethod.type === "card" ? paymentMethod.card : null;
+
 	await db.insert(tables.paymentMethod).values({
+		provider: "stripe",
 		stripePaymentMethodId: paymentMethodId,
 		organizationId,
 		type: paymentMethod.type,
 		isDefault,
+		cardBrand: stripeCard?.brand ?? null,
+		cardLast4: stripeCard?.last4 ?? null,
 	});
 }
 
@@ -630,6 +640,7 @@ async function handleInvoicePaymentSucceeded(
 		type: "subscription_start",
 		amount: (invoice.amount_paid / 100).toString(),
 		currency: invoice.currency.toUpperCase(),
+		provider: "stripe",
 		status: "completed",
 		stripePaymentIntentId: (invoice as any).payment_intent,
 		stripeInvoiceId: invoice.id,
@@ -725,6 +736,7 @@ async function handleSubscriptionUpdated(
 			organizationId,
 			type: "subscription_cancel",
 			currency: "USD",
+			provider: "stripe",
 			status: "completed",
 			stripeInvoiceId: subscription.latest_invoice as string,
 			description: "Pro subscription cancelled",
@@ -791,6 +803,7 @@ async function handleSubscriptionDeleted(
 		organizationId,
 		type: "subscription_end",
 		currency: "USD",
+		provider: "stripe",
 		status: "completed",
 		stripeInvoiceId: subscription.latest_invoice as string,
 		description: "Pro subscription ended",
