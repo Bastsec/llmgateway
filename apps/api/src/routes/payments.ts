@@ -3,6 +3,15 @@ import { HTTPException } from "hono/http-exception";
 import Stripe from "stripe";
 import { z } from "zod";
 
+import {
+	ensurePaystackCustomer,
+	initializePaystackTransaction,
+	chargePaystackAuthorization,
+	recordSuccessfulPaystackCharge,
+	recordFailedPaystackCharge,
+	coercePaystackMetadata,
+	type PaystackChargeMetadata,
+} from "@/lib/paystack.js";
 import { ensureStripeCustomer } from "@/stripe.js";
 
 import { db, eq, tables } from "@llmgateway/db";
@@ -19,6 +28,16 @@ export const stripe = new Stripe(
 );
 
 export const payments = new OpenAPIHono<ServerTypes>();
+
+const feeBreakdownSchema = z.object({
+	baseAmount: z.number(),
+	providerFee: z.number(),
+	internationalFee: z.number(),
+	planFee: z.number(),
+	totalFees: z.number(),
+	totalAmount: z.number(),
+	paymentProvider: z.enum(["stripe", "paystack"]),
+});
 
 const createPaymentIntent = createRoute({
 	method: "post",
@@ -598,16 +617,166 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		success: true,
 	});
 });
-const calculateFeesRoute = createRoute({
+
+const initializePaystackTopUp = createRoute({
 	method: "post",
-	path: "/calculate-fees",
+	path: "/paystack/initialize-topup",
 	request: {
 		body: {
 			content: {
 				"application/json": {
 					schema: z.object({
 						amount: z.number().int().min(5),
-						paymentMethodId: z.string().optional(),
+						channel: z.enum(["card", "mobile_money"]).optional(),
+						savePaymentMethod: z.boolean().optional(),
+						makeDefault: z.boolean().optional(),
+					}),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+				content: {
+					"application/json": {
+						schema: z.object({
+							authorizationUrl: z.string().url(),
+							reference: z.string(),
+							accessCode: z.string(),
+							feeBreakdown: feeBreakdownSchema,
+						}),
+					},
+				},
+				description: "Initialized Paystack transaction",
+			},
+		},
+	});
+
+payments.openapi(initializePaystackTopUp, async (c) => {
+	const user = c.get("user");
+
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+			});
+		}
+
+		if (!process.env.PAYSTACK_SECRET_KEY) {
+			throw new HTTPException(400, {
+				message: "Paystack is not configured",
+			});
+		}
+
+	const {
+		amount,
+		channel,
+		savePaymentMethod = false,
+		makeDefault = false,
+	} = c.req.valid("json");
+
+	const userOrganization = await db.query.userOrganization.findFirst({
+		where: {
+			userId: user.id,
+		},
+		with: {
+			organization: true,
+		},
+	});
+
+		if (!userOrganization || !userOrganization.organization) {
+			throw new HTTPException(404, {
+				message: "Organization not found",
+			});
+		}
+
+	const organization = userOrganization.organization;
+
+	const feeBreakdown = calculateFees({
+		amount,
+		organizationPlan: organization.plan,
+		paymentProvider: "paystack",
+		channel,
+	});
+
+	const paystackCustomerCode = await ensurePaystackCustomer(organization.id, {
+		email: organization.billingEmail ?? user.email,
+		name: organization.name,
+	});
+
+	const [transaction] = await db
+		.insert(tables.transaction)
+		.values({
+			organizationId: organization.id,
+			type: "credit_topup",
+			amount: feeBreakdown.totalAmount.toString(),
+			creditAmount: feeBreakdown.baseAmount.toString(),
+			currency: "USD",
+			provider: "paystack",
+			status: "pending",
+			description: `Paystack top-up initialization by ${user.email}`,
+		})
+		.returning({
+			id: tables.transaction.id,
+		});
+
+	const metadata: PaystackChargeMetadata = {
+		organizationId: organization.id,
+		transactionId: transaction.id,
+		baseAmount: feeBreakdown.baseAmount,
+		feeBreakdown,
+		savePaymentMethod,
+		makeDefault,
+		channel,
+		userId: user.id,
+		initiatedBy: user.email,
+	};
+
+	try {
+		const initialization = await initializePaystackTransaction({
+			amount,
+			feeBreakdown,
+			email: user.email,
+			organizationId: organization.id,
+			transactionId: transaction.id,
+			metadata,
+			channel,
+			customerCode: paystackCustomerCode,
+			currency: "USD",
+		});
+
+		await db
+			.update(tables.transaction)
+			.set({
+				paystackReference: initialization.reference,
+				description: `Paystack top-up pending (${initialization.reference})`,
+			})
+			.where(eq(tables.transaction.id, transaction.id));
+
+		return c.json({
+			authorizationUrl: initialization.authorization_url,
+			reference: initialization.reference,
+			accessCode: initialization.access_code,
+			feeBreakdown,
+		});
+		} catch (error) {
+			await recordFailedPaystackCharge(organization.id, transaction.id, "");
+			logger.error("Failed to initialize Paystack transaction", error as Error);
+			throw new HTTPException(400, {
+				message: "Failed to initialize Paystack transaction",
+			});
+		}
+	});
+
+const paystackTopUpWithSavedMethod = createRoute({
+	method: "post",
+	path: "/paystack/top-up-with-saved-method",
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						amount: z.number().int().min(5),
+						paymentMethodId: z.string(),
 					}),
 				},
 			},
@@ -618,22 +787,175 @@ const calculateFeesRoute = createRoute({
 			content: {
 				"application/json": {
 					schema: z.object({
-						baseAmount: z.number(),
-							providerFee: z.number(),
-							internationalFee: z.number(),
-							planFee: z.number(),
-							totalFees: z.number(),
-							totalAmount: z.number(),
-							bonusAmount: z.number().optional(),
-							finalCreditAmount: z.number().optional(),
-							bonusEnabled: z.boolean(),
-							bonusEligible: z.boolean(),
-							bonusIneligibilityReason: z.string().optional(),
-							paymentProvider: z.enum(["stripe", "paystack"]),
-						}),
-					},
+						success: z.boolean(),
+						reference: z.string(),
+						feeBreakdown: feeBreakdownSchema,
+					}),
 				},
-				description: "Fee calculation completed successfully",
+			},
+			description: "Charged Paystack saved payment method",
+		},
+	},
+});
+
+payments.openapi(paystackTopUpWithSavedMethod, async (c) => {
+	const user = c.get("user");
+
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+		}
+
+		if (!process.env.PAYSTACK_SECRET_KEY) {
+			throw new HTTPException(400, {
+				message: "Paystack is not configured",
+			});
+		}
+
+		const { amount, paymentMethodId } = c.req.valid("json");
+
+		const userOrganization = await db.query.userOrganization.findFirst({
+			where: {
+				userId: user.id,
+		},
+		with: {
+			organization: true,
+			user: true,
+		},
+	});
+
+	if (!userOrganization || !userOrganization.organization) {
+		throw new HTTPException(404, {
+			message: "Organization not found",
+		});
+	}
+
+	const organization = userOrganization.organization;
+
+	const paymentMethod = await db.query.paymentMethod.findFirst({
+		where: {
+			id: paymentMethodId,
+			organizationId: organization.id,
+		},
+	});
+
+	if (!paymentMethod) {
+		throw new HTTPException(404, {
+			message: "Payment method not found",
+		});
+	}
+
+	if (
+		paymentMethod.provider !== "paystack" ||
+		!paymentMethod.paystackAuthorizationCode
+	) {
+		throw new HTTPException(400, {
+			message: "Only Paystack payment methods are supported by this route",
+		});
+	}
+
+	const feeBreakdown = calculateFees({
+		amount,
+		organizationPlan: organization.plan,
+		paymentProvider: "paystack",
+		channel: paymentMethod.type === "mobile_money" ? "mobile_money" : "card",
+	});
+
+	const [transaction] = await db
+		.insert(tables.transaction)
+		.values({
+			organizationId: organization.id,
+			type: "credit_topup",
+			amount: feeBreakdown.totalAmount.toString(),
+			creditAmount: feeBreakdown.baseAmount.toString(),
+			currency: "USD",
+			provider: "paystack",
+			status: "pending",
+			description: `Paystack saved method top-up by ${user.email}`,
+		})
+		.returning({
+			id: tables.transaction.id,
+		});
+
+	const metadata: PaystackChargeMetadata = {
+		organizationId: organization.id,
+		transactionId: transaction.id,
+		baseAmount: feeBreakdown.baseAmount,
+		feeBreakdown,
+		paymentMethodId,
+		channel: paymentMethod.type === "mobile_money" ? "mobile_money" : "card",
+		userId: user.id,
+		initiatedBy: user.email,
+	};
+
+	try {
+		const charge = await chargePaystackAuthorization({
+			amount,
+			feeBreakdown,
+			email: user.email,
+			authorizationCode: paymentMethod.paystackAuthorizationCode,
+			organizationId: organization.id,
+			transactionId: transaction.id,
+			metadata,
+			currency: "USD",
+		});
+
+		const mergedMetadata = {
+			...metadata,
+			...coercePaystackMetadata(charge.metadata),
+		} as PaystackChargeMetadata;
+
+		await recordSuccessfulPaystackCharge({
+			organizationId: organization.id,
+			transactionId: transaction.id,
+			amountPaid: feeBreakdown.totalAmount,
+			creditAmount: feeBreakdown.baseAmount,
+			currency: (charge.currency || "USD").toUpperCase(),
+			reference: charge.reference,
+			authorization: charge.authorization,
+			metadata: mergedMetadata,
+		});
+
+		return c.json({
+			success: true,
+			reference: charge.reference,
+			feeBreakdown,
+		});
+	} catch (error) {
+		await recordFailedPaystackCharge(organization.id, transaction.id, "");
+		logger.error("Paystack saved method charge failed", error as Error);
+		throw new HTTPException(400, {
+			message: "Failed to charge saved Paystack payment method",
+		});
+	}
+});
+
+const calculateFeesRoute = createRoute({
+	method: "post",
+	path: "/calculate-fees",
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						amount: z.number().int().min(5),
+						paymentMethodId: z.string().optional(),
+						paymentProvider: z.enum(["stripe", "paystack"]).optional(),
+						channel: z.enum(["card", "mobile_money"]).optional(),
+					}),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: feeBreakdownSchema,
+				},
+			},
+			description: "Fee calculation completed successfully",
 		},
 	},
 });
@@ -650,7 +972,9 @@ payments.openapi(calculateFeesRoute, async (c) => {
 	const {
 		amount,
 		paymentMethodId,
-	}: { amount: number; paymentMethodId?: string } = c.req.valid("json");
+		paymentProvider: paymentProviderOverride,
+		channel: channelOverride,
+	} = c.req.valid("json");
 
 	const userOrganization = await db.query.userOrganization.findFirst({
 		where: {
@@ -658,7 +982,6 @@ payments.openapi(calculateFeesRoute, async (c) => {
 		},
 		with: {
 			organization: true,
-			user: true,
 		},
 	});
 
@@ -669,7 +992,9 @@ payments.openapi(calculateFeesRoute, async (c) => {
 	}
 
 	let cardCountry: string | undefined;
-	let paymentProvider: "stripe" | "paystack" = "stripe";
+	let paymentProvider: "stripe" | "paystack" =
+		paymentProviderOverride ?? "stripe";
+	let feeChannel = channelOverride;
 
 	if (paymentMethodId) {
 		const paymentMethod = await db.query.paymentMethod.findFirst({
@@ -692,6 +1017,10 @@ payments.openapi(calculateFeesRoute, async (c) => {
 			} catch {}
 		} else if (paymentMethod) {
 			paymentProvider = paymentMethod.provider as "stripe" | "paystack";
+			if (!feeChannel && paymentMethod.provider === "paystack") {
+				feeChannel =
+					paymentMethod.type === "mobile_money" ? "mobile_money" : "card";
+			}
 		}
 	}
 
@@ -700,6 +1029,7 @@ payments.openapi(calculateFeesRoute, async (c) => {
 		organizationPlan: userOrganization.organization.plan,
 		cardCountry,
 		paymentProvider,
+		channel: feeChannel,
 	});
 
 	// Calculate bonus for first-time credit purchases

@@ -18,6 +18,7 @@ import { HealthChecker } from "@llmgateway/shared";
 import { redisClient } from "./auth/config.js";
 import { authHandler } from "./auth/handler.js";
 import { tracingMiddleware } from "./middleware/tracing.js";
+import { paystackRoutes } from "./paystack.js";
 import { beacon } from "./routes/beacon.js";
 import { routes } from "./routes/index.js";
 import { referral } from "./routes/referral.js";
@@ -176,6 +177,7 @@ app.openapi(root, async (c) => {
 });
 
 app.route("/stripe", stripeRoutes);
+app.route("/paystack", paystackRoutes);
 
 app.route("/", beacon);
 
