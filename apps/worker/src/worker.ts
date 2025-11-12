@@ -200,6 +200,16 @@ async function processAutoTopUp(): Promise<void> {
 					continue;
 				}
 
+				if (
+					defaultPaymentMethod.provider !== "stripe" ||
+					!defaultPaymentMethod.stripePaymentMethodId
+				) {
+					logger.info(
+						`Default payment method for organization ${org.id} is not a Stripe method, skipping auto top-up`,
+					);
+					continue;
+				}
+
 				const topUpAmount = Number(org.autoTopUpAmount || "10");
 
 				// Get the first user associated with this organization for email metadata
@@ -225,6 +235,7 @@ async function processAutoTopUp(): Promise<void> {
 					amount: topUpAmount,
 					organizationPlan: org.plan,
 					cardCountry: cardCountry || undefined,
+					paymentProvider: "stripe",
 				});
 
 				// Insert pending transaction before creating payment intent
@@ -236,6 +247,7 @@ async function processAutoTopUp(): Promise<void> {
 						creditAmount: feeBreakdown.baseAmount.toString(),
 						amount: feeBreakdown.totalAmount.toString(),
 						currency: "USD",
+						provider: "stripe",
 						status: "pending",
 						description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
 					})

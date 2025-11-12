@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ensureStripeCustomer } from "@/stripe.js";
 
 import { db, eq, tables } from "@llmgateway/db";
+import { logger } from "@llmgateway/logger";
 import { calculateFees } from "@llmgateway/shared";
 
 import type { ServerTypes } from "@/vars.js";
@@ -79,6 +80,7 @@ payments.openapi(createPaymentIntent, async (c) => {
 	const feeBreakdown = calculateFees({
 		amount,
 		organizationPlan: userOrganization.organization.plan,
+		paymentProvider: "stripe",
 	});
 
 	const paymentIntent = await stripe.paymentIntents.create({
@@ -168,13 +170,15 @@ const getPaymentMethods = createRoute({
 						paymentMethods: z.array(
 							z.object({
 								id: z.string(),
-								stripePaymentMethodId: z.string(),
+								provider: z.enum(["stripe", "paystack"]),
+								stripePaymentMethodId: z.string().nullable(),
+								paystackAuthorizationCode: z.string().nullable(),
 								type: z.string(),
 								isDefault: z.boolean(),
-								cardBrand: z.string().optional(),
-								cardLast4: z.string().optional(),
-								expiryMonth: z.number().optional(),
-								expiryYear: z.number().optional(),
+								cardBrand: z.string().nullable(),
+								cardLast4: z.string().nullable(),
+								expiryMonth: z.number().nullable(),
+								expiryYear: z.number().nullable(),
 							}),
 						),
 					}),
@@ -219,23 +223,64 @@ payments.openapi(getPaymentMethods, async (c) => {
 
 	const enhancedPaymentMethods = await Promise.all(
 		paymentMethods.map(async (pm) => {
-			const stripePaymentMethod = await stripe.paymentMethods.retrieve(
-				pm.stripePaymentMethodId,
-			);
+			if (pm.provider === "stripe" && pm.stripePaymentMethodId) {
+				try {
+					const stripePaymentMethod = await stripe.paymentMethods.retrieve(
+						pm.stripePaymentMethodId,
+					);
 
-			let cardDetails = {};
-			if (stripePaymentMethod.type === "card" && stripePaymentMethod.card) {
-				cardDetails = {
-					cardBrand: stripePaymentMethod.card.brand,
-					cardLast4: stripePaymentMethod.card.last4,
-					expiryMonth: stripePaymentMethod.card.exp_month,
-					expiryYear: stripePaymentMethod.card.exp_year,
-				};
+					const stripeCard =
+						stripePaymentMethod.type === "card"
+							? stripePaymentMethod.card
+							: null;
+
+					return {
+						id: pm.id,
+						provider: pm.provider,
+						stripePaymentMethodId: pm.stripePaymentMethodId,
+						paystackAuthorizationCode: null,
+						type: pm.type,
+						isDefault: pm.isDefault,
+						cardBrand: stripeCard?.brand ?? pm.cardBrand ?? null,
+						cardLast4: stripeCard?.last4 ?? pm.cardLast4 ?? null,
+						expiryMonth: stripeCard?.exp_month ?? null,
+						expiryYear: stripeCard?.exp_year ?? null,
+					};
+				} catch (error) {
+					logger.warn(
+						"Failed to retrieve Stripe payment method",
+						error as Error,
+					);
+					return {
+						id: pm.id,
+						provider: pm.provider,
+						stripePaymentMethodId: pm.stripePaymentMethodId,
+						paystackAuthorizationCode: null,
+						type: pm.type,
+						isDefault: pm.isDefault,
+						cardBrand: pm.cardBrand ?? null,
+						cardLast4: pm.cardLast4 ?? null,
+						expiryMonth: null,
+						expiryYear: null,
+					};
+				}
 			}
 
+			const fallbackBrand =
+				pm.cardBrand ||
+				(pm.type === "mobile_money" ? "Mobile Money" : pm.type.toUpperCase());
+
 			return {
-				...pm,
-				...cardDetails,
+				id: pm.id,
+				provider: pm.provider,
+				stripePaymentMethodId: pm.stripePaymentMethodId ?? null,
+				paystackAuthorizationCode: pm.paystackAuthorizationCode ?? null,
+				type: pm.type,
+				isDefault: pm.isDefault,
+				cardBrand: fallbackBrand ?? null,
+				cardLast4: pm.cardLast4 ?? null,
+				expiryMonth: null,
+				expiryYear: null,
 			};
 		}),
 	);
@@ -311,6 +356,18 @@ payments.openapi(setDefaultPaymentMethod, async (c) => {
 	if (!paymentMethod) {
 		throw new HTTPException(404, {
 			message: "Payment method not found",
+		});
+	}
+
+	if (paymentMethod.provider !== "stripe") {
+		throw new HTTPException(400, {
+			message: "Only Stripe payment methods are supported for saved top-ups",
+		});
+	}
+
+	if (!paymentMethod.stripePaymentMethodId) {
+		throw new HTTPException(400, {
+			message: "Stripe payment method identifier missing",
 		});
 	}
 
@@ -396,7 +453,12 @@ payments.openapi(deletePaymentMethod, async (c) => {
 		});
 	}
 
-	await stripe.paymentMethods.detach(paymentMethod.stripePaymentMethodId);
+	if (
+		paymentMethod.provider === "stripe" &&
+		paymentMethod.stripePaymentMethodId
+	) {
+		await stripe.paymentMethods.detach(paymentMethod.stripePaymentMethodId);
+	}
 
 	await db.delete(tables.paymentMethod).where(eq(tables.paymentMethod.id, id));
 
@@ -460,6 +522,15 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		});
 	}
 
+	if (
+		paymentMethod.provider !== "stripe" ||
+		!paymentMethod.stripePaymentMethodId
+	) {
+		throw new HTTPException(400, {
+			message: "Only Stripe payment methods are supported for saved top-ups",
+		});
+	}
+
 	const userOrganization = await db.query.userOrganization.findFirst({
 		where: {
 			userId: user.id,
@@ -497,6 +568,7 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		amount,
 		organizationPlan: userOrganization.organization.plan,
 		cardCountry,
+		paymentProvider: "stripe",
 	});
 
 	const paymentIntent = await stripe.paymentIntents.create({
@@ -547,20 +619,21 @@ const calculateFeesRoute = createRoute({
 				"application/json": {
 					schema: z.object({
 						baseAmount: z.number(),
-						stripeFee: z.number(),
-						internationalFee: z.number(),
-						planFee: z.number(),
-						totalFees: z.number(),
-						totalAmount: z.number(),
-						bonusAmount: z.number().optional(),
-						finalCreditAmount: z.number().optional(),
-						bonusEnabled: z.boolean(),
-						bonusEligible: z.boolean(),
-						bonusIneligibilityReason: z.string().optional(),
-					}),
+							providerFee: z.number(),
+							internationalFee: z.number(),
+							planFee: z.number(),
+							totalFees: z.number(),
+							totalAmount: z.number(),
+							bonusAmount: z.number().optional(),
+							finalCreditAmount: z.number().optional(),
+							bonusEnabled: z.boolean(),
+							bonusEligible: z.boolean(),
+							bonusIneligibilityReason: z.string().optional(),
+							paymentProvider: z.enum(["stripe", "paystack"]),
+						}),
+					},
 				},
-			},
-			description: "Fee calculation completed successfully",
+				description: "Fee calculation completed successfully",
 		},
 	},
 });
@@ -596,6 +669,7 @@ payments.openapi(calculateFeesRoute, async (c) => {
 	}
 
 	let cardCountry: string | undefined;
+	let paymentProvider: "stripe" | "paystack" = "stripe";
 
 	if (paymentMethodId) {
 		const paymentMethod = await db.query.paymentMethod.findFirst({
@@ -605,13 +679,19 @@ payments.openapi(calculateFeesRoute, async (c) => {
 			},
 		});
 
-		if (paymentMethod) {
+		if (
+			paymentMethod &&
+			paymentMethod.provider === "stripe" &&
+			paymentMethod.stripePaymentMethodId
+		) {
 			try {
 				const stripePaymentMethod = await stripe.paymentMethods.retrieve(
 					paymentMethod.stripePaymentMethodId,
 				);
 				cardCountry = stripePaymentMethod.card?.country || undefined;
 			} catch {}
+		} else if (paymentMethod) {
+			paymentProvider = paymentMethod.provider as "stripe" | "paystack";
 		}
 	}
 
@@ -619,6 +699,7 @@ payments.openapi(calculateFeesRoute, async (c) => {
 		amount,
 		organizationPlan: userOrganization.organization.plan,
 		cardCountry,
+		paymentProvider,
 	});
 
 	// Calculate bonus for first-time credit purchases

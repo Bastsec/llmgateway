@@ -258,8 +258,12 @@ function AmountStep({
 									<span>${feeData.baseAmount.toFixed(2)}</span>
 								</div>
 								<div className="flex justify-between">
-									<span>Stripe fees ($0.30 + 2.9%)</span>
-									<span>${feeData.stripeFee.toFixed(2)}</span>
+									<span>
+										{feeData.paymentProvider === "paystack"
+											? "Paystack processing fees"
+											: "Stripe fees ($0.35 + 2.9%)"}
+									</span>
+									<span>${feeData.providerFee.toFixed(2)}</span>
 								</div>
 								{feeData.internationalFee > 0 && (
 									<div className="flex justify-between">
@@ -506,13 +510,15 @@ function SelectPaymentStep({
 	amount: number;
 	paymentMethods: {
 		id: string;
-		stripePaymentMethodId: string;
+		provider: "stripe" | "paystack";
+		stripePaymentMethodId: string | null;
+		paystackAuthorizationCode: string | null;
 		type: string;
 		isDefault: boolean;
-		cardBrand?: string;
-		cardLast4?: string;
-		expiryMonth?: number;
-		expiryYear?: number;
+		cardBrand: string | null;
+		cardLast4: string | null;
+		expiryMonth: number | null;
+		expiryYear: number | null;
 	}[];
 	selectedPaymentMethod: string | null;
 	setSelectedPaymentMethod: (id: string) => void;
@@ -521,6 +527,10 @@ function SelectPaymentStep({
 	onBack: () => void;
 	onCancel: () => void;
 }) {
+	const stripeMethods = paymentMethods.filter(
+		(method) => method.provider === "stripe",
+	);
+
 	return (
 		<>
 			<DialogHeader>
@@ -532,7 +542,7 @@ function SelectPaymentStep({
 			</DialogHeader>
 			<div className="space-y-4 py-4">
 				<div className="space-y-2">
-					{paymentMethods.map((method) => (
+					{stripeMethods.map((method) => (
 						<div
 							key={method.id}
 							className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${
@@ -544,10 +554,14 @@ function SelectPaymentStep({
 								<CreditCard className="h-5 w-5" />
 								<div>
 									<p>
-										{method.cardBrand} •••• {method.cardLast4}
+										{method.cardBrand ?? method.type.toUpperCase()} ••••{" "}
+										{method.cardLast4 ?? "—"}
 									</p>
 									<p className="text-sm text-muted-foreground">
-										Expires {method.expiryMonth}/{method.expiryYear}
+										Expires{" "}
+										{method.expiryMonth && method.expiryYear
+											? `${method.expiryMonth}/${method.expiryYear}`
+											: "—"}
 									</p>
 								</div>
 								{method.isDefault && (
@@ -694,8 +708,12 @@ function ConfirmPaymentStep({
 								<span>${feeData.baseAmount.toFixed(2)}</span>
 							</div>
 							<div className="flex justify-between">
-								<span>Stripe fees ($0.30 + 2.9%)</span>
-								<span>${feeData.stripeFee.toFixed(2)}</span>
+								<span>
+									{feeData.paymentProvider === "paystack"
+										? "Paystack processing fees"
+										: "Stripe fees ($0.35 + 2.9%)"}
+								</span>
+								<span>${feeData.providerFee.toFixed(2)}</span>
 							</div>
 							{feeData.internationalFee > 0 && (
 								<div className="flex justify-between">

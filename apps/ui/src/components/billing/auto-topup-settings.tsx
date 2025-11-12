@@ -55,9 +55,12 @@ function AutoTopUpSettings() {
 
 	const updateOrganization = api.useMutation("patch", "/orgs/{id}");
 
-	const hasPaymentMethods =
-		paymentMethods?.paymentMethods && paymentMethods.paymentMethods.length > 0;
-	const hasDefaultPaymentMethod = paymentMethods?.paymentMethods?.some(
+	const stripePaymentMethods =
+		paymentMethods?.paymentMethods?.filter(
+			(pm) => pm.provider === "stripe" && !!pm.stripePaymentMethodId,
+		) ?? [];
+	const hasPaymentMethods = stripePaymentMethods.length > 0;
+	const hasDefaultPaymentMethod = stripePaymentMethods.some(
 		(pm) => pm.isDefault,
 	);
 
@@ -212,8 +215,12 @@ function AutoTopUpSettings() {
 									<span>${feeData.baseAmount.toFixed(2)}</span>
 								</div>
 								<div className="flex justify-between">
-									<span>Stripe fees ($0.30 + 2.9%)</span>
-									<span>${feeData.stripeFee.toFixed(2)}</span>
+									<span>
+										{feeData.paymentProvider === "paystack"
+											? "Paystack processing fees"
+											: "Stripe fees ($0.35 + 2.9%)"}
+									</span>
+									<span>${feeData.providerFee.toFixed(2)}</span>
 								</div>
 								{feeData.internationalFee > 0 && (
 									<div className="flex justify-between">
