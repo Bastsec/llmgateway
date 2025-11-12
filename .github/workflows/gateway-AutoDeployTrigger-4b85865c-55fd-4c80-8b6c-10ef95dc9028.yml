@@ -4,19 +4,18 @@ name: Trigger auto deployment for gateway
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches: [main]
     paths:
-    - '**'
-    - '.github/workflows/gateway-AutoDeployTrigger-4b85865c-55fd-4c80-8b6c-10ef95dc9028.yml'
+      - "**"
+      - ".github/workflows/gateway-AutoDeployTrigger-4b85865c-55fd-4c80-8b6c-10ef95dc9028.yml"
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       id-token: write #This is required for requesting the OIDC JWT Token
       contents: read #Required when GH token is used to authenticate with private repo
 
@@ -34,16 +33,14 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/infra/unified.external-db.dockerfile
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
+          appSourcePath: ${{ github.workspace }}
+          dockerfilePath: infra/unified.external-db.dockerfile
+          targetLabel: unified-azure
           registryUrl: gtahidireg.azurecr.io
           registryUsername: ${{ secrets.GATEWAY_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.GATEWAY_REGISTRY_PASSWORD }}
           containerAppName: gateway
           resourceGroup: AI
           imageToBuild: gtahidireg.azurecr.io/gateway:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
-
-
+          buildArguments: |
+            APP_VERSION=${{ github.sha }}
