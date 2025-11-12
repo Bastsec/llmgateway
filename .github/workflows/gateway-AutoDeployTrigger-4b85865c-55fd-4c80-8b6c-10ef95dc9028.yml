@@ -35,7 +35,6 @@ jobs:
         with:
           appSourcePath: ${{ github.workspace }}
           dockerfilePath: infra/unified.external-db.dockerfile
-          targetLabel: unified-azure
           registryUrl: gtahidireg.azurecr.io
           registryUsername: ${{ secrets.GATEWAY_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.GATEWAY_REGISTRY_PASSWORD }}
