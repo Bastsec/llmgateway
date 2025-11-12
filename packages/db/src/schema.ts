@@ -167,6 +167,11 @@ export const transaction = pgTable(
 		amount: decimal(),
 		creditAmount: decimal(),
 		currency: text().notNull().default("USD"),
+		provider: text({
+			enum: ["stripe", "paystack"],
+		})
+			.notNull()
+			.default("stripe"),
 		status: text({
 			enum: ["pending", "completed", "failed"],
 		})
@@ -174,6 +179,8 @@ export const transaction = pgTable(
 			.default("completed"),
 		stripePaymentIntentId: text(),
 		stripeInvoiceId: text(),
+		paystackReference: text(),
+		paystackInvoiceId: text(),
 		description: text(),
 	},
 	(table) => [
@@ -468,8 +475,19 @@ export const paymentMethod = pgTable(
 	{
 		id: text().primaryKey().$defaultFn(shortid),
 		createdAt: timestamp().notNull().defaultNow(),
-		updatedAt: timestamp().notNull().defaultNow(),
-		stripePaymentMethodId: text().notNull(),
+		updatedAt: timestamp()
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+		provider: text({
+			enum: ["stripe", "paystack"],
+		})
+			.notNull()
+			.default("stripe"),
+		stripePaymentMethodId: text(),
+		paystackAuthorizationCode: text(),
+		cardBrand: text(),
+		cardLast4: text(),
 		organizationId: text()
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),

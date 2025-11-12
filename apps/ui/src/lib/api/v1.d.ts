@@ -2570,13 +2570,15 @@ export interface paths {
                         "application/json": {
                             paymentMethods: {
                                 id: string;
-                                stripePaymentMethodId: string;
+                                provider: "stripe" | "paystack";
+                                stripePaymentMethodId: string | null;
+                                paystackAuthorizationCode: string | null;
                                 type: string;
                                 isDefault: boolean;
-                                cardBrand?: string;
-                                cardLast4?: string;
-                                expiryMonth?: number;
-                                expiryYear?: number;
+                                cardBrand: string | null;
+                                cardLast4: string | null;
+                                expiryMonth: number | null;
+                                expiryYear: number | null;
                             }[];
                         };
                     };
@@ -2750,11 +2752,12 @@ export interface paths {
                     content: {
                         "application/json": {
                             baseAmount: number;
-                            stripeFee: number;
+                            providerFee: number;
                             internationalFee: number;
                             planFee: number;
                             totalFees: number;
                             totalAmount: number;
+                            paymentProvider: "stripe" | "paystack";
                         };
                     };
                 };
