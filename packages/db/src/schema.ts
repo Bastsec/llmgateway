@@ -116,6 +116,7 @@ export const organization = pgTable("organization", {
 	billingEmail: text().notNull(),
 	stripeCustomerId: text().unique(),
 	stripeSubscriptionId: text().unique(),
+	paystackCustomerId: text().unique(),
 	credits: decimal().notNull().default("0"),
 	autoTopUpEnabled: boolean().notNull().default(false),
 	autoTopUpThreshold: decimal().default("10"),
