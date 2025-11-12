@@ -1,0 +1,74 @@
+name: llmgateway-unified-external-db
+
+services:
+  llmgateway:
+    build:
+      context: ..
+      dockerfile: infra/unified.external-db.dockerfile
+    container_name: llmgateway-local
+    restart: unless-stopped
+    env_file:
+      - ../.env.external-db
+    # Fallback: environment variables can also be set directly or via shell export
+    ports:
+      - "3002:3002" # UI
+      - "3003:3003" # Playground
+      - "3005:3005" # Docs
+      - "4001:4001" # Gateway
+      - "4002:4002" # API
+      - "6379:6379" # Redis (internal)
+    volumes:
+      - llmgateway_redis:/var/lib/redis
+    environment:
+      # Database connection (external PostgreSQL)
+      - DATABASE_URL=${DATABASE_URL}
+
+      # URLs (update for your domain in production)
+      - UI_URL=${UI_URL:-http://localhost:3002}
+      - PLAYGROUND_URL=${PLAYGROUND_URL:-http://localhost:3003}
+      - API_URL=${API_URL:-http://localhost:4002}
+      - API_BACKEND_URL=${API_BACKEND_URL:-http://localhost:4002}
+      - ORIGIN_URLS=${ORIGIN_URLS:-http://localhost:3002,http://localhost:3003,http://localhost:4002}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-localhost}
+
+      # Authentication
+      - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}
+      - PASSKEY_RP_NAME=${PASSKEY_RP_NAME:-LLMGateway}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+
+      # Analytics (optional)
+      - POSTHOG_KEY=${POSTHOG_KEY:-}
+      - POSTHOG_HOST=${POSTHOG_HOST:-}
+
+      # Stripe (optional)
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRO_MONTHLY_PRICE_ID=${STRIPE_PRO_MONTHLY_PRICE_ID:-}
+      - STRIPE_PRO_YEARLY_PRICE_ID=${STRIPE_PRO_YEARLY_PRICE_ID:-}
+
+      # LLM Provider API Keys
+      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY:-}
+      - LLM_ANTHROPIC_API_KEY=${LLM_ANTHROPIC_API_KEY:-}
+
+      # Azure OpenAI Configuration
+      - LLM_AZURE_API_KEY=${LLM_AZURE_API_KEY:-}
+      - LLM_AZURE_RESOURCE=${LLM_AZURE_RESOURCE:-}
+      - LLM_AZURE_API_VERSION=${LLM_AZURE_API_VERSION:-2024-10-21}
+      - LLM_AZURE_DEPLOYMENT_TYPE=${LLM_AZURE_DEPLOYMENT_TYPE:-ai-foundry}
+
+      # Redis (internal)
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+      # CI environment
+      - CI=${CI}
+
+      # Run migrations on API startup
+      - RUN_MIGRATIONS=true
+
+volumes:
+  llmgateway_redis:
+    driver: local
