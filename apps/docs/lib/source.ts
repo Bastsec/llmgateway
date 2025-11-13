@@ -52,5 +52,4 @@ ${processed}`;
 
 export const openapi = createOpenAPI({
 	input: ["./openapi.json"],
-	proxyUrl: "/api/proxy",
 });
