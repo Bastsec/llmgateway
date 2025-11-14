@@ -826,7 +826,7 @@ export async function startWorker() {
 	let creditProcessingCounter = 0;
 	let dataRetentionCounter = 0;
 	const dataRetentionInterval =
-		process.env.NODE_ENV === "production" ? 3600 : 60; // 1 hour in production, 1 minute in dev
+		process.env.NODE_ENV === "production" ? 300 : 60; // 5 minutes in prod, 1 minute in dev
 
 	// eslint-disable-next-line no-unmodified-loop-condition
 	while (!shouldStop) {
