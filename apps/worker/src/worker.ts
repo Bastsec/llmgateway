@@ -330,7 +330,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		// Define retention periods in days
 		const FREE_PLAN_RETENTION_DAYS = 3;
 		const PRO_PLAN_RETENTION_DAYS = 7;
-		const CLEANUP_BATCH_SIZE = 1000;
+		const CLEANUP_BATCH_SIZE = 10000;
 
 		const now = new Date();
 
