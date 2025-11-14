@@ -38,6 +38,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
 
 const AUTO_TOPUP_LOCK_KEY = "auto_topup_check";
 const CREDIT_PROCESSING_LOCK_KEY = "credit_processing";
+const DATA_RETENTION_LOCK_KEY = "data_retention_cleanup";
 const LOCK_DURATION_MINUTES = 5;
 
 // Configuration for batch processing
@@ -306,6 +307,184 @@ async function processAutoTopUp(): Promise<void> {
 		}
 	} finally {
 		await releaseLock(AUTO_TOPUP_LOCK_KEY);
+	}
+}
+
+export async function cleanupExpiredLogData(): Promise<void> {
+	// Check if data retention cleanup is enabled
+	if (process.env.ENABLE_DATA_RETENTION_CLEANUP !== "true") {
+		logger.info(
+			"Data retention cleanup is disabled. Set ENABLE_DATA_RETENTION_CLEANUP=true to enable.",
+		);
+		return;
+	}
+
+	const lockAcquired = await acquireLock(DATA_RETENTION_LOCK_KEY);
+	if (!lockAcquired) {
+		return;
+	}
+
+	try {
+		logger.info("Starting data retention cleanup...");
+
+		// Define retention periods in days
+		const FREE_PLAN_RETENTION_DAYS = 3;
+		const PRO_PLAN_RETENTION_DAYS = 7;
+		const CLEANUP_BATCH_SIZE = 1000;
+
+		const now = new Date();
+
+		// Calculate cutoff dates
+		const freePlanCutoff = new Date(
+			now.getTime() - FREE_PLAN_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+		);
+		const proPlanCutoff = new Date(
+			now.getTime() - PRO_PLAN_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+		);
+
+		let totalFreePlanCleaned = 0;
+		let totalProPlanCleaned = 0;
+
+		// Process free plan organizations in batches
+		let hasMoreFreePlanRecords = true;
+		while (hasMoreFreePlanRecords) {
+			const batchResult = await db.transaction(async (tx) => {
+				// Find IDs of records to clean up (with LIMIT for batching)
+				const recordsToClean = await tx
+					.select({ id: log.id })
+					.from(log)
+					.where(
+						and(
+							sql`${log.organizationId} IN (SELECT id FROM ${organization} WHERE plan = 'free')`,
+							lt(log.createdAt, freePlanCutoff),
+							sql`${log.dataRetentionCleanedUp} = false`,
+							sql`(${log.messages} IS NOT NULL OR ${log.content} IS NOT NULL OR ${log.reasoningContent} IS NOT NULL OR ${log.tools} IS NOT NULL OR ${log.toolChoice} IS NOT NULL OR ${log.toolResults} IS NOT NULL OR ${log.customHeaders} IS NOT NULL OR ${log.rawRequest} IS NOT NULL OR ${log.rawResponse} IS NOT NULL OR ${log.upstreamRequest} IS NOT NULL OR ${log.upstreamResponse} IS NOT NULL)`,
+						),
+					)
+					.limit(CLEANUP_BATCH_SIZE)
+					.for("update", { skipLocked: true });
+
+				if (recordsToClean.length === 0) {
+					return 0;
+				}
+
+				const idsToClean = recordsToClean.map((r) => r.id);
+
+				// Clean up the batch
+				await tx
+					.update(log)
+					.set({
+						messages: null,
+						content: null,
+						reasoningContent: null,
+						tools: null,
+						toolChoice: null,
+						toolResults: null,
+						customHeaders: null,
+						rawRequest: null,
+						rawResponse: null,
+						upstreamRequest: null,
+						upstreamResponse: null,
+						dataRetentionCleanedUp: true,
+					})
+					.where(inArray(log.id, idsToClean));
+
+				return recordsToClean.length;
+			});
+
+			totalFreePlanCleaned += batchResult;
+
+			if (batchResult < CLEANUP_BATCH_SIZE) {
+				hasMoreFreePlanRecords = false;
+			}
+
+			if (batchResult > 0) {
+				logger.info(
+					`Cleaned up ${batchResult} logs in batch for free plan organizations`,
+				);
+			}
+		}
+
+		if (totalFreePlanCleaned > 0) {
+			logger.info(
+				`Total cleaned up verbose data from ${totalFreePlanCleaned} logs for free plan organizations (older than ${FREE_PLAN_RETENTION_DAYS} days)`,
+			);
+		}
+
+		// Process pro plan organizations in batches
+		let hasMoreProPlanRecords = true;
+		while (hasMoreProPlanRecords) {
+			const batchResult = await db.transaction(async (tx) => {
+				// Find IDs of records to clean up (with LIMIT for batching)
+				const recordsToClean = await tx
+					.select({ id: log.id })
+					.from(log)
+					.where(
+						and(
+							sql`${log.organizationId} IN (SELECT id FROM ${organization} WHERE plan = 'pro')`,
+							lt(log.createdAt, proPlanCutoff),
+							sql`${log.dataRetentionCleanedUp} = false`,
+							sql`(${log.messages} IS NOT NULL OR ${log.content} IS NOT NULL OR ${log.reasoningContent} IS NOT NULL OR ${log.tools} IS NOT NULL OR ${log.toolChoice} IS NOT NULL OR ${log.toolResults} IS NOT NULL OR ${log.customHeaders} IS NOT NULL OR ${log.rawRequest} IS NOT NULL OR ${log.rawResponse} IS NOT NULL OR ${log.upstreamRequest} IS NOT NULL OR ${log.upstreamResponse} IS NOT NULL)`,
+						),
+					)
+					.limit(CLEANUP_BATCH_SIZE)
+					.for("update", { skipLocked: true });
+
+				if (recordsToClean.length === 0) {
+					return 0;
+				}
+
+				const idsToClean = recordsToClean.map((r) => r.id);
+
+				// Clean up the batch
+				await tx
+					.update(log)
+					.set({
+						messages: null,
+						content: null,
+						reasoningContent: null,
+						tools: null,
+						toolChoice: null,
+						toolResults: null,
+						customHeaders: null,
+						rawRequest: null,
+						rawResponse: null,
+						upstreamRequest: null,
+						upstreamResponse: null,
+						dataRetentionCleanedUp: true,
+					})
+					.where(inArray(log.id, idsToClean));
+
+				return recordsToClean.length;
+			});
+
+			totalProPlanCleaned += batchResult;
+
+			if (batchResult < CLEANUP_BATCH_SIZE) {
+				hasMoreProPlanRecords = false;
+			}
+
+			if (batchResult > 0) {
+				logger.info(
+					`Cleaned up ${batchResult} logs in batch for pro plan organizations`,
+				);
+			}
+		}
+
+		if (totalProPlanCleaned > 0) {
+			logger.info(
+				`Total cleaned up verbose data from ${totalProPlanCleaned} logs for pro plan organizations (older than ${PRO_PLAN_RETENTION_DAYS} days)`,
+			);
+		}
+
+		logger.info("Data retention cleanup completed successfully");
+	} catch (error) {
+		logger.error(
+			"Error during data retention cleanup",
+			error instanceof Error ? error : new Error(String(error)),
+		);
+	} finally {
+		await releaseLock(DATA_RETENTION_LOCK_KEY);
 	}
 }
 
@@ -645,6 +824,9 @@ export async function startWorker() {
 	const count = process.env.NODE_ENV === "production" ? 120 : 5;
 	let autoTopUpCounter = 0;
 	let creditProcessingCounter = 0;
+	let dataRetentionCounter = 0;
+	const dataRetentionInterval =
+		process.env.NODE_ENV === "production" ? 3600 : 60; // 1 hour in production, 1 minute in dev
 
 	// eslint-disable-next-line no-unmodified-loop-condition
 	while (!shouldStop) {
@@ -661,6 +843,12 @@ export async function startWorker() {
 			if (creditProcessingCounter >= BATCH_PROCESSING_INTERVAL_SECONDS) {
 				await batchProcessLogs();
 				creditProcessingCounter = 0;
+			}
+
+			dataRetentionCounter++;
+			if (dataRetentionCounter >= dataRetentionInterval) {
+				await cleanupExpiredLogData();
+				dataRetentionCounter = 0;
 			}
 
 			if (!shouldStop) {
