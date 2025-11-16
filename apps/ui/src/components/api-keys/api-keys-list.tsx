@@ -430,7 +430,7 @@ export function ApiKeysList({
 								<TableCell className="font-medium">
 									<span className="text-sm font-medium">{key.description}</span>
 								</TableCell>
-								<TableCell className="w-40">
+								<TableCell className="min-w-40 max-w-40">
 									<div className="flex items-center space-x-2">
 										<span className="font-mono text-xs truncate">
 											{key.maskedToken}
