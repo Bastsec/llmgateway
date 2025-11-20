@@ -6,6 +6,7 @@ import {
 	type Model,
 	type ModelDefinition,
 	models,
+	type PricingTier,
 	type ToolCall,
 } from "@llmgateway/models";
 
@@ -17,6 +18,52 @@ interface ChatMessage {
 }
 
 const DEFAULT_TOKENIZER_MODEL = "gpt-4";
+
+/**
+ * Get the appropriate pricing tier based on prompt token count
+ */
+function getPricingForTokenCount(
+	pricingTiers: PricingTier[] | undefined,
+	baseInputPrice: number,
+	baseOutputPrice: number,
+	baseCachedInputPrice: number | undefined,
+	promptTokens: number,
+): {
+	inputPrice: number;
+	outputPrice: number;
+	cachedInputPrice: number | undefined;
+	tierName: string | undefined;
+} {
+	if (!pricingTiers || pricingTiers.length === 0) {
+		return {
+			inputPrice: baseInputPrice,
+			outputPrice: baseOutputPrice,
+			cachedInputPrice: baseCachedInputPrice,
+			tierName: undefined,
+		};
+	}
+
+	// Find the appropriate tier based on prompt tokens
+	for (const tier of pricingTiers) {
+		if (promptTokens <= tier.upToTokens) {
+			return {
+				inputPrice: tier.inputPrice,
+				outputPrice: tier.outputPrice,
+				cachedInputPrice: tier.cachedInputPrice ?? baseCachedInputPrice,
+				tierName: tier.name,
+			};
+		}
+	}
+
+	// If no tier matched (shouldn't happen with Infinity), use the last tier
+	const lastTier = pricingTiers[pricingTiers.length - 1];
+	return {
+		inputPrice: lastTier.inputPrice,
+		outputPrice: lastTier.outputPrice,
+		cachedInputPrice: lastTier.cachedInputPrice ?? baseCachedInputPrice,
+		tierName: lastTier.name,
+	};
+}
 
 /**
  * Calculate costs based on model, provider, and token counts
@@ -58,6 +105,7 @@ export function calculateCosts(
 			cachedTokens,
 			estimatedCost: false,
 			discount: undefined,
+			pricingTier: undefined,
 		};
 	}
 
@@ -141,6 +189,7 @@ export function calculateCosts(
 			cachedTokens,
 			estimatedCost: isEstimated,
 			discount: undefined,
+			pricingTier: undefined,
 		};
 	}
 
@@ -166,13 +215,23 @@ export function calculateCosts(
 			cachedTokens,
 			estimatedCost: isEstimated,
 			discount: undefined,
+			pricingTier: undefined,
 		};
 	}
 
-	const inputPrice = new Decimal(providerInfo.inputPrice || 0);
-	const outputPrice = new Decimal(providerInfo.outputPrice || 0);
+	// Get pricing based on token count (supports tiered pricing)
+	const pricing = getPricingForTokenCount(
+		providerInfo.pricingTiers,
+		providerInfo.inputPrice || 0,
+		providerInfo.outputPrice || 0,
+		providerInfo.cachedInputPrice,
+		calculatedPromptTokens,
+	);
+
+	const inputPrice = new Decimal(pricing.inputPrice);
+	const outputPrice = new Decimal(pricing.outputPrice);
 	const cachedInputPrice = new Decimal(
-		providerInfo.cachedInputPrice ?? providerInfo.inputPrice ?? 0,
+		pricing.cachedInputPrice ?? pricing.inputPrice,
 	);
 	const requestPrice = new Decimal(providerInfo.requestPrice || 0);
 	const discount = providerInfo.discount || 0;
@@ -215,5 +274,6 @@ export function calculateCosts(
 		cachedTokens,
 		estimatedCost: isEstimated,
 		discount: discount !== 0 ? discount : undefined,
+		pricingTier: pricing.tierName,
 	};
 }
