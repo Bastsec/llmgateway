@@ -870,8 +870,9 @@ export const openaiModels = [
 			{
 				providerId: "openai",
 				modelName: "gpt-5.1-codex",
-				inputPrice: 15 / 1e6,
-				outputPrice: 120.0 / 1e6,
+				inputPrice: 1.25 / 1e6,
+				outputPrice: 10 / 1e6,
+				cachedInputPrice: 0.125 / 1e6,
 				requestPrice: 0,
 				contextSize: 400000,
 				maxOutput: 272000,
