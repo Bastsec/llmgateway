@@ -18,6 +18,7 @@ import {
 } from "@llmgateway/cache";
 import {
 	cdb as db,
+	getProviderMetricsForCombinations,
 	isCachingEnabled,
 	type InferSelectModel,
 	shortid,
@@ -40,6 +41,7 @@ import {
 	type ProviderModelMapping,
 	type ProviderRequestBody,
 	providers,
+	type RoutingMetadata,
 } from "@llmgateway/models";
 
 import { createLogEntry } from "./tools/create-log-entry.js";
@@ -685,6 +687,7 @@ chat.openapi(completions, async (c) => {
 
 	let usedProvider = requestedProvider;
 	let usedModel = requestedModel;
+	let routingMetadata: RoutingMetadata | undefined;
 
 	const auth = c.req.header("Authorization");
 	if (!auth) {
@@ -1019,14 +1022,26 @@ chat.openapi(completions, async (c) => {
 				: selectedProviders;
 
 			if (finalProviders.length > 0) {
+				// Fetch uptime/latency metrics from last 5 minutes for provider selection
+				const metricsCombinations = finalProviders.map((p) => ({
+					modelId: selectedModel.id,
+					providerId: p.providerId,
+				}));
+				const metricsMap = await getProviderMetricsForCombinations(
+					metricsCombinations,
+					5,
+				);
+
 				const cheapestResult = getCheapestFromAvailableProviders(
 					finalProviders,
 					selectedModel,
+					metricsMap,
 				);
 
 				if (cheapestResult) {
-					usedProvider = cheapestResult.providerId;
-					usedModel = cheapestResult.modelName;
+					usedProvider = cheapestResult.provider.providerId;
+					usedModel = cheapestResult.provider.modelName;
+					routingMetadata = cheapestResult.metadata;
 				} else {
 					// Fallback to first available provider if price comparison fails
 					usedProvider = finalProviders[0].providerId;
@@ -1114,14 +1129,26 @@ chat.openapi(completions, async (c) => {
 			const modelWithPricing = models.find((m) => m.id === usedModel);
 
 			if (modelWithPricing) {
+				// Fetch uptime/latency metrics from last 5 minutes for provider selection
+				const metricsCombinations = availableModelProviders.map((p) => ({
+					modelId: modelWithPricing.id,
+					providerId: p.providerId,
+				}));
+				const metricsMap = await getProviderMetricsForCombinations(
+					metricsCombinations,
+					5,
+				);
+
 				const cheapestResult = getCheapestFromAvailableProviders(
 					availableModelProviders,
 					modelWithPricing,
+					metricsMap,
 				);
 
 				if (cheapestResult) {
-					usedProvider = cheapestResult.providerId;
-					usedModel = cheapestResult.modelName;
+					usedProvider = cheapestResult.provider.providerId;
+					usedModel = cheapestResult.provider.modelName;
+					routingMetadata = cheapestResult.metadata;
 				} else {
 					usedProvider = availableModelProviders[0].providerId;
 					usedModel = availableModelProviders[0].modelName;
@@ -1588,6 +1615,7 @@ chat.openapi(completions, async (c) => {
 					source,
 					customHeaders,
 					debugMode,
+					routingMetadata,
 					rawBody,
 					rawCachedResponseData, // Raw SSE data from cached response
 					null, // No upstream request for cached response
@@ -1691,6 +1719,7 @@ chat.openapi(completions, async (c) => {
 					source,
 					customHeaders,
 					debugMode,
+					routingMetadata,
 					rawBody,
 					cachedResponse,
 					null, // No upstream request for cached response
@@ -1926,6 +1955,7 @@ chat.openapi(completions, async (c) => {
 						source,
 						customHeaders,
 						debugMode,
+						routingMetadata,
 						rawBody,
 						null, // No response for canceled request
 						requestBody, // The request that was sent before cancellation
@@ -2006,6 +2036,7 @@ chat.openapi(completions, async (c) => {
 						source,
 						customHeaders,
 						debugMode,
+						routingMetadata,
 						rawBody,
 						null, // No response for fetch error
 						requestBody, // The request that resulted in error
@@ -2148,6 +2179,7 @@ chat.openapi(completions, async (c) => {
 					source,
 					customHeaders,
 					debugMode,
+					routingMetadata,
 					rawBody,
 					null, // No response for error case
 					requestBody, // The request that was sent and resulted in error
@@ -3109,6 +3141,7 @@ chat.openapi(completions, async (c) => {
 					source,
 					customHeaders,
 					debugMode,
+					routingMetadata,
 					rawBody,
 					streamingError
 						? streamingError // Pass structured error when there's an error
@@ -3298,6 +3331,7 @@ chat.openapi(completions, async (c) => {
 			source,
 			customHeaders,
 			debugMode,
+			routingMetadata,
 			rawBody,
 			null, // No response for fetch error
 			requestBody, // The request that resulted in error
@@ -3378,6 +3412,7 @@ chat.openapi(completions, async (c) => {
 			source,
 			customHeaders,
 			debugMode,
+			routingMetadata,
 			rawBody,
 			null, // No response for canceled request
 			requestBody, // The request that was prepared before cancellation
@@ -3468,6 +3503,7 @@ chat.openapi(completions, async (c) => {
 			source,
 			customHeaders,
 			debugMode,
+			routingMetadata,
 			rawBody,
 			errorResponseText, // Our formatted error response
 			requestBody, // The request that resulted in error
@@ -3680,6 +3716,7 @@ chat.openapi(completions, async (c) => {
 		source,
 		customHeaders,
 		debugMode,
+		routingMetadata,
 		rawBody,
 		transformedResponse, // Our formatted response that we return to user
 		requestBody, // The request sent to the provider
