@@ -15,12 +15,12 @@ This guide explains how to run the unified LLMGateway container with an external
 Copy the example environment file:
 
 ```bash
-cp .env.unified.example .env
+cp .env.external-db.example .env.external-db
 ```
 
 ### 2. Configure External Database
 
-Update the `DATABASE_URL` in your `.env` file:
+Update the `DATABASE_URL` in your `.env.external-db` file:
 
 ```bash
 DATABASE_URL=postgresql://username:password@your-db-host:5432/llmgateway
@@ -41,7 +41,7 @@ DATABASE_URL=postgresql://doadmin:password@mydb-do-user-123-0.db.ondigitalocean.
 
 ### 3. Configure Azure OpenAI
 
-Add your Azure OpenAI credentials to `.env`:
+Add your Azure OpenAI credentials to `.env.external-db`:
 
 ```bash
 # Azure OpenAI API Key (from Azure Portal > Your Resource > Keys and Endpoint)
@@ -81,7 +81,7 @@ Generate a secure random string for `AUTH_SECRET`:
 openssl rand -base64 32
 ```
 
-Add it to `.env`:
+Add it to `.env.external-db`:
 
 ```bash
 AUTH_SECRET=your_generated_secret_here
@@ -104,8 +104,7 @@ Or manually run the SQL migrations from `packages/db/migrations/`.
 Use the external database docker-compose file:
 
 ```bash
-cd infra
-docker compose -f docker-compose.unified.external-db.yml up -d
+docker compose -f docker-compose.external-db.yml up -d
 ```
 
 ### 7. Verify Setup
@@ -187,22 +186,22 @@ curl http://localhost:4001/health
 
 To update environment variables:
 
-1. Edit `.env` file
+1. Edit `.env.external-db`
 2. Restart the container:
    ```bash
-   docker compose -f docker-compose.unified.external-db.yml restart
+   docker compose -f docker-compose.external-db.yml restart
    ```
 
 ## Stopping the Gateway
 
 ```bash
-docker compose -f docker-compose.unified.external-db.yml down
+docker compose -f docker-compose.external-db.yml down
 ```
 
 To remove volumes (Redis data):
 
 ```bash
-docker compose -f docker-compose.unified.external-db.yml down -v
+docker compose -f docker-compose.external-db.yml down -v
 ```
 
 ## Production Considerations
