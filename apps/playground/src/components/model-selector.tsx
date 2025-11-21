@@ -107,6 +107,36 @@ function isModelUnstable(
 	);
 }
 
+// Helper to format prices using any provider discount while reusing shared formatPrice logic.
+function formatMappingPrice(
+	mapping: ProviderModelMapping | undefined,
+	field: "input" | "output" | "cachedInput",
+): string {
+	if (!mapping) {
+		return "Unknown";
+	}
+
+	let basePrice: number | undefined;
+	if (field === "input") {
+		basePrice = mapping.inputPrice;
+	} else if (field === "output") {
+		basePrice = mapping.outputPrice;
+	} else {
+		basePrice = mapping.cachedInputPrice;
+	}
+
+	if (basePrice === undefined) {
+		return "Unknown";
+	}
+
+	const effectivePrice =
+		mapping.discount && mapping.discount > 0
+			? basePrice * (1 - mapping.discount)
+			: basePrice;
+
+	return formatPrice(effectivePrice);
+}
+
 // Removed old ModelItem; we render entries per provider below
 
 export function ModelSelector({
@@ -895,7 +925,10 @@ export function ModelSelector({
 																Input
 															</span>
 															<p className="text-xs font-mono">
-																{formatPrice(previewEntry.mapping?.inputPrice)}
+																{formatMappingPrice(
+																	previewEntry.mapping,
+																	"input",
+																)}
 															</p>
 														</div>
 														<div className="space-y-1">
@@ -903,7 +936,10 @@ export function ModelSelector({
 																Output
 															</span>
 															<p className="text-xs font-mono">
-																{formatPrice(previewEntry.mapping?.outputPrice)}
+																{formatMappingPrice(
+																	previewEntry.mapping,
+																	"output",
+																)}
 															</p>
 														</div>
 														<div className="space-y-1">
@@ -934,8 +970,9 @@ export function ModelSelector({
 																	Cached Input
 																</span>
 																<p className="text-xs font-mono text-green-600 dark:text-green-400">
-																	{formatPrice(
-																		previewEntry.mapping.cachedInputPrice,
+																	{formatMappingPrice(
+																		previewEntry.mapping,
+																		"cachedInput",
 																	)}
 																</p>
 															</div>
@@ -1063,7 +1100,10 @@ export function ModelSelector({
 														Input
 													</span>
 													<p className="text-sm font-mono">
-														{formatPrice(selectedDetails.mapping?.inputPrice)}
+														{formatMappingPrice(
+															selectedDetails.mapping,
+															"input",
+														)}
 													</p>
 												</div>
 												<div className="space-y-1">
@@ -1071,7 +1111,10 @@ export function ModelSelector({
 														Output
 													</span>
 													<p className="text-sm font-mono">
-														{formatPrice(selectedDetails.mapping?.outputPrice)}
+														{formatMappingPrice(
+															selectedDetails.mapping,
+															"output",
+														)}
 													</p>
 												</div>
 												<div className="space-y-1">
@@ -1102,8 +1145,9 @@ export function ModelSelector({
 															Cached Input
 														</span>
 														<p className="text-sm font-mono text-green-600 dark:text-green-400">
-															{formatPrice(
-																selectedDetails.mapping.cachedInputPrice,
+															{formatMappingPrice(
+																selectedDetails.mapping,
+																"cachedInput",
 															)}
 														</p>
 													</div>

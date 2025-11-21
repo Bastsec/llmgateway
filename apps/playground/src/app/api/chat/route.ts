@@ -35,6 +35,8 @@ interface ChatRequestBody {
 			| "21:9";
 		image_size?: "1K" | "2K" | "4K";
 	};
+	reasoning_effort?: "minimal" | "low" | "medium" | "high";
+	githubToken?: string;
 }
 
 export async function POST(req: Request) {
@@ -47,8 +49,15 @@ export async function POST(req: Request) {
 	}
 
 	const body = await req.json();
-	const { messages, model, apiKey, provider, image_config }: ChatRequestBody =
-		body;
+	const {
+		messages,
+		model,
+		apiKey,
+		provider,
+		image_config,
+		reasoning_effort,
+		githubToken: githubTokenBody,
+	}: ChatRequestBody = body;
 
 	if (!messages || !Array.isArray(messages)) {
 		return new Response(JSON.stringify({ error: "Missing messages" }), {
@@ -59,8 +68,6 @@ export async function POST(req: Request) {
 	const headerApiKey = req.headers.get("x-llmgateway-key") || undefined;
 	const headerModel = req.headers.get("x-llmgateway-model") || undefined;
 	const githubTokenHeader = req.headers.get("x-github-token") || undefined;
-	const githubTokenBody = (body as any)?.githubToken || undefined;
-	const reasoningEffort = (body as any)?.reasoning_effort || undefined;
 
 	const cookieStore = await cookies();
 	const cookieApiKey =
@@ -86,8 +93,12 @@ export async function POST(req: Request) {
 			"x-source": "chat.llmgateway.io",
 		},
 	});
+
+	// Respect root model IDs passed from the client without adding a provider prefix.
+	// Only apply provider-based prefixing when the client did NOT explicitly specify a model
+	// (i.e. we're using a header/default model value).
 	let selectedModel = (model ?? headerModel ?? "auto") as LLMGatewayChatModelId;
-	if (provider && typeof provider === "string") {
+	if (!model && provider && typeof provider === "string") {
 		const alreadyPrefixed = String(selectedModel).includes("/");
 		if (!alreadyPrefixed) {
 			selectedModel = `${provider}/${selectedModel}` as LLMGatewayChatModelId;
@@ -102,11 +113,14 @@ export async function POST(req: Request) {
 			);
 
 			const result = streamText({
-				model: llmgateway.chat(selectedModel),
+				model: llmgateway.chat(selectedModel, {
+					extraBody: {
+						...(reasoning_effort ? { reasoning_effort } : {}),
+						...(image_config ? { image_config } : {}),
+					},
+				}),
 				messages: convertToModelMessages(messages),
 				tools,
-				...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-				...(image_config ? { image_config } : {}),
 				stopWhen: stepCountIs(10),
 				onFinish: async () => {
 					if (githubMCPClient) {
@@ -125,8 +139,6 @@ export async function POST(req: Request) {
 		const result = streamText({
 			model: llmgateway.chat(selectedModel),
 			messages: convertToModelMessages(messages),
-			...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-			...(image_config ? { image_config } : {}),
 		});
 
 		return result.toUIMessageStreamResponse({ sendReasoning: true });
