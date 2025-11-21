@@ -92,6 +92,10 @@ export async function POST(req: Request) {
 		headers: {
 			"x-source": "chat.llmgateway.io",
 		},
+		extraBody: {
+			...(reasoning_effort ? { reasoning_effort } : {}),
+			...(image_config ? { image_config } : {}),
+		},
 	});
 
 	// Respect root model IDs passed from the client without adding a provider prefix.
@@ -113,12 +117,7 @@ export async function POST(req: Request) {
 			);
 
 			const result = streamText({
-				model: llmgateway.chat(selectedModel, {
-					extraBody: {
-						...(reasoning_effort ? { reasoning_effort } : {}),
-						...(image_config ? { image_config } : {}),
-					},
-				}),
+				model: llmgateway.chat(selectedModel),
 				messages: convertToModelMessages(messages),
 				tools,
 				stopWhen: stepCountIs(10),
