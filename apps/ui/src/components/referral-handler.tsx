@@ -3,20 +3,27 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-const REFERRAL_COOKIE_NAME = "llmgateway_referral";
-const REFERRAL_COOKIE_DAYS = 30;
+import { useAppConfig } from "@/lib/config";
 
 export function ReferralHandler() {
 	const searchParams = useSearchParams();
+	const { apiUrl } = useAppConfig();
 
 	useEffect(() => {
 		const ref = searchParams.get("ref");
 		if (ref) {
-			const expires = new Date();
-			expires.setDate(expires.getDate() + REFERRAL_COOKIE_DAYS);
-			document.cookie = `${REFERRAL_COOKIE_NAME}=${encodeURIComponent(ref)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+			fetch(`${apiUrl}/referral`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				credentials: "include",
+				body: JSON.stringify({ ref }),
+			}).catch(() => {
+				// Silently fail - referral tracking is not critical
+			});
 		}
-	}, [searchParams]);
+	}, [searchParams, apiUrl]);
 
 	return null;
 }
