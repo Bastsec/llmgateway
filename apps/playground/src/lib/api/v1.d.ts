@@ -1976,6 +1976,7 @@ export interface paths {
                                 autoTopUpEnabled: boolean;
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
+                                referralEarnings: string;
                             }[];
                         };
                     };
@@ -2026,6 +2027,7 @@ export interface paths {
                                 autoTopUpEnabled: boolean;
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
+                                referralEarnings: string;
                             };
                         };
                     };
@@ -2204,6 +2206,7 @@ export interface paths {
                                 autoTopUpEnabled: boolean;
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
+                                referralEarnings: string;
                             };
                         };
                     };
@@ -2275,6 +2278,45 @@ export interface paths {
                                 stripeInvoiceId: string | null;
                                 description: string | null;
                             }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{id}/referral-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Referral statistics for the organization */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            referredCount: number;
                         };
                     };
                 };
