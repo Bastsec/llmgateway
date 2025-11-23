@@ -321,7 +321,7 @@ export default async function ModelPage({ params }: PageProps) {
 							</div>
 						</div>
 
-						<div className="space-y-4">
+						<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
 							{modelProviders.map((provider) => (
 								<ModelProviderCard
 									key={provider.providerId}
@@ -350,24 +350,42 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
 	const { name } = await params;
 	const decodedName = decodeURIComponent(name);
-	const model = modelDefinitions.find((m) => m.id === decodedName);
+	const model = modelDefinitions.find((m) => m.id === decodedName) as
+		| ModelDefinition
+		| undefined;
 
 	if (!model) {
 		return {};
 	}
 
+	const title = `${model.name || model.id} – AI Model on LLM Gateway`;
+	const description =
+		model.description ||
+		`Details, pricing, and capabilities for ${model.name || model.id} on LLM Gateway.`;
+
+	const ogImageUrl = `/models/${encodeURIComponent(decodedName)}/opengraph-image`;
+
 	return {
-		title: `${model.id} - LLM Gateway`,
-		description: `Explore ${model.id} across providers on LLM Gateway.`,
+		title,
+		description,
 		openGraph: {
-			title: `${model.id} - LLM Gateway`,
-			description: `Explore ${model.id} across providers on LLM Gateway.`,
+			title,
+			description,
 			type: "website",
+			images: [
+				{
+					url: ogImageUrl,
+					width: 1200,
+					height: 630,
+					alt: `${model.name || model.id} model card`,
+				},
+			],
 		},
 		twitter: {
 			card: "summary_large_image",
-			title: `${model.id} - LLM Gateway`,
-			description: `Explore ${model.id} across providers.`,
+			title,
+			description,
+			images: [ogImageUrl],
 		},
 	};
 }
