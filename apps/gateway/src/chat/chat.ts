@@ -224,6 +224,16 @@ const completionsRequestSchema = z.object({
 			description: "Controls the reasoning effort for reasoning-capable models",
 			example: "medium",
 		}),
+	effort: z
+		.enum(["low", "medium", "high"])
+		.nullable()
+		.optional()
+		.transform((val) => (val === null ? undefined : val))
+		.openapi({
+			description:
+				"Controls the computational effort for supported models (currently only claude-opus-4-5-20251101)",
+			example: "medium",
+		}),
 	free_models_only: z.boolean().optional().default(false).openapi({
 		description:
 			"When used with auto routing, only route to free models (models with zero input and output pricing)",
@@ -412,6 +422,7 @@ chat.openapi(completions, async (c) => {
 		no_reasoning,
 		sensitive_word_check,
 		image_config,
+		effort,
 	} = validationResult.data;
 
 	// Extract reasoning_effort as mutable variable for auto-routing modification
@@ -1760,6 +1771,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					effort,
 					response_format,
 					tools,
 					tool_choice,
@@ -1865,6 +1877,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					effort,
 					response_format,
 					tools,
 					tool_choice,
@@ -1955,6 +1968,23 @@ chat.openapi(completions, async (c) => {
 		}
 	}
 
+	// Check if effort parameter is supported by the specific provider being used
+	if (effort !== undefined && finalModelInfo) {
+		const providerMapping = finalModelInfo.providers.find(
+			(p) => p.providerId === usedProvider && p.modelName === usedModel,
+		);
+
+		if (providerMapping) {
+			const params = (providerMapping as ProviderModelMapping)
+				.supportedParameters;
+			if (!params?.includes("effort")) {
+				throw new HTTPException(400, {
+					message: `Model ${usedModel} with provider ${usedProvider} does not support the effort parameter. Try using provider 'anthropic' instead.`,
+				});
+			}
+		}
+	}
+
 	// Check if the request can be canceled
 	const requestCanBeCanceled =
 		providers.find((p) => p.id === usedProvider)?.cancellation === true;
@@ -1979,6 +2009,7 @@ chat.openapi(completions, async (c) => {
 		userPlan,
 		sensitive_word_check,
 		image_config,
+		effort,
 	);
 
 	// Validate effective max_tokens value after prepareRequestBody
@@ -2074,6 +2105,14 @@ chat.openapi(completions, async (c) => {
 				const headers = getProviderHeaders(usedProvider, usedToken);
 				headers["Content-Type"] = "application/json";
 
+				// Add effort beta header for Anthropic if effort parameter is specified
+				if (usedProvider === "anthropic" && effort !== undefined) {
+					const currentBeta = headers["anthropic-beta"];
+					headers["anthropic-beta"] = currentBeta
+						? `${currentBeta},effort-2025-11-24`
+						: "effort-2025-11-24";
+				}
+
 				res = await fetch(url, {
 					method: "POST",
 					headers,
@@ -2103,6 +2142,7 @@ chat.openapi(completions, async (c) => {
 						frequency_penalty,
 						presence_penalty,
 						reasoning_effort,
+						effort,
 						response_format,
 						tools,
 						tool_choice,
@@ -2184,6 +2224,7 @@ chat.openapi(completions, async (c) => {
 						frequency_penalty,
 						presence_penalty,
 						reasoning_effort,
+						effort,
 						response_format,
 						tools,
 						tool_choice,
@@ -2332,6 +2373,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					effort,
 					response_format,
 					tools,
 					tool_choice,
@@ -3350,6 +3392,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					effort,
 					response_format,
 					tools,
 					tool_choice,
@@ -3500,6 +3543,15 @@ chat.openapi(completions, async (c) => {
 	try {
 		const headers = getProviderHeaders(usedProvider, usedToken);
 		headers["Content-Type"] = "application/json";
+
+		// Add effort beta header for Anthropic if effort parameter is specified
+		if (usedProvider === "anthropic" && effort !== undefined) {
+			const currentBeta = headers["anthropic-beta"];
+			headers["anthropic-beta"] = currentBeta
+				? `${currentBeta},effort-2025-11-24`
+				: "effort-2025-11-24";
+		}
+
 		res = await fetch(url, {
 			method: "POST",
 			headers,
@@ -3551,6 +3603,7 @@ chat.openapi(completions, async (c) => {
 			frequency_penalty,
 			presence_penalty,
 			reasoning_effort,
+			effort,
 			response_format,
 			tools,
 			tool_choice,
@@ -3637,6 +3690,7 @@ chat.openapi(completions, async (c) => {
 			frequency_penalty,
 			presence_penalty,
 			reasoning_effort,
+			effort,
 			response_format,
 			tools,
 			tool_choice,
@@ -3728,6 +3782,7 @@ chat.openapi(completions, async (c) => {
 			frequency_penalty,
 			presence_penalty,
 			reasoning_effort,
+			effort,
 			response_format,
 			tools,
 			tool_choice,
@@ -3948,6 +4003,7 @@ chat.openapi(completions, async (c) => {
 		frequency_penalty,
 		presence_penalty,
 		reasoning_effort,
+		effort,
 		response_format,
 		tools,
 		tool_choice,
