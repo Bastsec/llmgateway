@@ -60,6 +60,7 @@ async function seed() {
 		name: "Test Organization",
 		billingEmail: "admin@example.com",
 		credits: 5,
+		retentionLevel: "retain",
 	});
 
 	// Insert user organization relationship

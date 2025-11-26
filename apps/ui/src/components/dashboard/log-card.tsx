@@ -29,6 +29,12 @@ import {
 import type { Log } from "@llmgateway/db";
 
 export function LogCard({ log }: { log: Partial<Log> }) {
+	// Determine if retention was enabled based on dataStorageCost
+	// If dataStorageCost is 0 or null/undefined, retention was disabled
+	const retentionEnabled =
+		log.dataStorageCost !== null &&
+		log.dataStorageCost !== undefined &&
+		Number(log.dataStorageCost) > 0;
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	const formattedTime = formatDistanceToNow(new Date(log?.createdAt ?? ""), {
@@ -90,7 +96,8 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 							</p>
 							{!log.content &&
 								log.unifiedFinishReason !== "tool_calls" &&
-								!log.hasError && (
+								!log.hasError &&
+								!retentionEnabled && (
 									<TooltipProvider>
 										<Tooltip>
 											<TooltipTrigger asChild>
@@ -709,10 +716,14 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<pre className="max-h-60 text-xs overflow-auto whitespace-pre-wrap break-words">
 									{JSON.stringify(log.messages, null, 2)}
 								</pre>
-							) : (
+							) : !retentionEnabled ? (
 								<p className="text-sm text-muted-foreground italic">
 									Message data not retained. Enable retention in organization
 									policies to store request messages.
+								</p>
+							) : (
+								<p className="text-sm text-muted-foreground italic">
+									No message data available.
 								</p>
 							)}
 						</div>
@@ -746,10 +757,14 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<pre className="max-h-60 text-xs overflow-auto whitespace-pre-wrap break-words">
 									{log.content}
 								</pre>
-							) : (
+							) : !retentionEnabled ? (
 								<p className="text-sm text-muted-foreground italic">
 									Response content not retained. Enable retention in
 									organization policies to store response data.
+								</p>
+							) : (
+								<p className="text-sm text-muted-foreground italic">
+									No response content available.
 								</p>
 							)}
 						</div>
