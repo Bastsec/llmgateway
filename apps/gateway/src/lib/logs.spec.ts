@@ -77,15 +77,15 @@ describe("getUnifiedFinishReason", () => {
 
 describe("calculateDataStorageCost", () => {
 	it("calculates cost based on total tokens", () => {
-		// 1M tokens = $0.01
+		// 1M tokens = $0.01 (formula: totalTokens / 1_000_000 * 0.01)
 		const cost = calculateDataStorageCost(500000, 0, 500000, 0);
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01"); // 1M tokens * $0.01 per 1M = $0.01
 	});
 
 	it("includes all token types in calculation", () => {
-		// 250k prompt + 250k cached + 250k completion + 250k reasoning = 1M tokens = $0.01
+		// 250k prompt + 250k cached + 250k completion + 250k reasoning = 1M tokens
 		const cost = calculateDataStorageCost(250000, 250000, 250000, 250000);
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01"); // 1M tokens * $0.01 per 1M = $0.01
 	});
 
 	it("returns zero when retention level is none", () => {
@@ -95,17 +95,17 @@ describe("calculateDataStorageCost", () => {
 
 	it("calculates cost when retention level is retain", () => {
 		const cost = calculateDataStorageCost(500000, 0, 500000, 0, "retain");
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01");
 	});
 
 	it("calculates cost when retention level is null", () => {
 		const cost = calculateDataStorageCost(500000, 0, 500000, 0, null);
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01");
 	});
 
 	it("calculates cost when retention level is undefined", () => {
 		const cost = calculateDataStorageCost(500000, 0, 500000, 0, undefined);
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01");
 	});
 
 	it("handles null and undefined token values", () => {
@@ -115,6 +115,6 @@ describe("calculateDataStorageCost", () => {
 
 	it("handles string token values", () => {
 		const cost = calculateDataStorageCost("500000", "0", "500000", "0");
-		expect(cost).toBe("0.00001");
+		expect(cost).toBe("0.01");
 	});
 });
