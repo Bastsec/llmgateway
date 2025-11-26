@@ -66,6 +66,8 @@ describe("test", () => {
 			name: "Test Organization",
 			billingEmail: "user",
 			plan: "pro",
+			retentionLevel: "retain",
+			credits: "100.00", // Add credits for retention storage costs
 		});
 
 		await db.insert(tables.userOrganization).values({

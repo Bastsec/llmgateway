@@ -118,11 +118,10 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 		activityData.reduce((sum, day) => sum + day.inputCost, 0) || 0;
 	const totalOutputCost =
 		activityData.reduce((sum, day) => sum + day.outputCost, 0) || 0;
+	const totalDataStorageCost =
+		activityData.reduce((sum, day) => sum + day.dataStorageCost, 0) || 0;
 	const totalRequestCost =
-		activityData.reduce(
-			(sum, day) => sum + (day.cost - day.inputCost - day.outputCost),
-			0,
-		) || 0;
+		activityData.reduce((sum, day) => sum + day.requestCost, 0) || 0;
 	const totalSavings =
 		activityData.reduce((sum, day) => sum + day.discountSavings, 0) || 0;
 
@@ -331,7 +330,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 						<Card>
 							<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 								<CardTitle className="text-sm font-medium">
-									Cost Estimate
+									Inference Cost
 								</CardTitle>
 								<CircleDollarSign className="text-muted-foreground h-4 w-4" />
 							</CardHeader>
@@ -357,6 +356,14 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 												</>
 											)}
 										</p>
+										{totalDataStorageCost > 0 && (
+											<p className="text-muted-foreground text-xs mt-1 pt-1 border-t border-muted">
+												<span className="text-xs">
+													LLM Gateway: ${totalDataStorageCost.toFixed(4)}{" "}
+													storage
+												</span>
+											</p>
+										)}
 									</>
 								)}
 							</CardContent>
