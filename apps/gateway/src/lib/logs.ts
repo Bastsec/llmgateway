@@ -84,13 +84,20 @@ export function getUnifiedFinishReason(
 /**
  * Calculate data storage cost based on token usage
  * $0.01 per 1M tokens (total tokens = input + cached + output + reasoning)
+ * Returns "0" if retention level is "none" since no data is stored
  */
 export function calculateDataStorageCost(
 	promptTokens: number | string | null | undefined,
 	cachedTokens: number | string | null | undefined,
 	completionTokens: number | string | null | undefined,
 	reasoningTokens: number | string | null | undefined,
+	retentionLevel?: "retain" | "none" | null,
 ): string {
+	// No storage cost when data retention is disabled
+	if (retentionLevel === "none") {
+		return "0";
+	}
+
 	const prompt = Number(promptTokens) || 0;
 	const cached = Number(cachedTokens) || 0;
 	const completion = Number(completionTokens) || 0;

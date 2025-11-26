@@ -400,15 +400,6 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<div className="font-medium">
 									{log.cost ? `$${log.cost.toFixed(8)}` : "$0"}
 								</div>
-								<div className="text-muted-foreground col-span-2 border-t pt-2 mt-1 text-xs">
-									LLM Gateway Costs
-								</div>
-								<div className="text-muted-foreground">Data Storage</div>
-								<div>
-									{log.dataStorageCost
-										? `$${Number(log.dataStorageCost).toFixed(8)}`
-										: "$0"}
-								</div>
 								{log.discount && log.discount !== 1 && (
 									<>
 										<div className="text-muted-foreground">
@@ -425,6 +416,15 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 										<div>{log.pricingTier}</div>
 									</>
 								)}
+								<div className="text-muted-foreground col-span-2 border-t pt-2 mt-1 text-xs">
+									LLM Gateway Costs
+								</div>
+								<div className="text-muted-foreground">Data Storage</div>
+								<div>
+									{log.dataStorageCost
+										? `$${Number(log.dataStorageCost).toFixed(8)}`
+										: "$0"}
+								</div>
 							</div>
 						</div>
 						<div className="space-y-2">

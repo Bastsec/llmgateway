@@ -789,6 +789,9 @@ chat.openapi(completions, async (c) => {
 		},
 	});
 
+	// Extract retention level for data storage cost calculation
+	const retentionLevel = organization?.retentionLevel ?? "none";
+
 	// Get image size limits from environment variables or use defaults
 	const freeLimitMB = Number(process.env.IMAGE_SIZE_LIMIT_FREE_MB) || 10;
 	const proLimitMB = Number(process.env.IMAGE_SIZE_LIMIT_PRO_MB) || 100;
@@ -1844,6 +1847,7 @@ chat.openapi(completions, async (c) => {
 						cachedTokens,
 						completionTokens,
 						reasoningTokens,
+						retentionLevel,
 					),
 					cached: true,
 					toolResults:
@@ -1958,6 +1962,7 @@ chat.openapi(completions, async (c) => {
 						cachedResponse.usage?.prompt_tokens_details?.cached_tokens,
 						cachedResponse.usage?.completion_tokens,
 						cachedResponse.usage?.reasoning_tokens,
+						retentionLevel,
 					),
 					cached: true,
 					toolResults: cachedResponse.choices?.[0]?.message?.tool_calls || null,
@@ -3541,6 +3546,7 @@ chat.openapi(completions, async (c) => {
 						cachedTokens,
 						calculatedCompletionTokens,
 						calculatedReasoningTokens,
+						retentionLevel,
 					),
 					cached: false,
 					tools,
@@ -4164,6 +4170,7 @@ chat.openapi(completions, async (c) => {
 			cachedTokens,
 			calculatedCompletionTokens,
 			calculatedReasoningTokens,
+			retentionLevel,
 		),
 		cached: false,
 		tools,

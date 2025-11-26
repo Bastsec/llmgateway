@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { UnifiedFinishReason } from "@llmgateway/db";
 
-import { getUnifiedFinishReason } from "./logs.js";
+import { calculateDataStorageCost, getUnifiedFinishReason } from "./logs.js";
 
 describe("getUnifiedFinishReason", () => {
 	it("maps OpenAI finish reasons correctly", () => {
@@ -72,5 +72,49 @@ describe("getUnifiedFinishReason", () => {
 		expect(getUnifiedFinishReason("unknown_reason", "any-provider")).toBe(
 			UnifiedFinishReason.UNKNOWN,
 		);
+	});
+});
+
+describe("calculateDataStorageCost", () => {
+	it("calculates cost based on total tokens", () => {
+		// 1M tokens = $0.01
+		const cost = calculateDataStorageCost(500000, 0, 500000, 0);
+		expect(cost).toBe("0.00001");
+	});
+
+	it("includes all token types in calculation", () => {
+		// 250k prompt + 250k cached + 250k completion + 250k reasoning = 1M tokens = $0.01
+		const cost = calculateDataStorageCost(250000, 250000, 250000, 250000);
+		expect(cost).toBe("0.00001");
+	});
+
+	it("returns zero when retention level is none", () => {
+		const cost = calculateDataStorageCost(1000000, 0, 1000000, 0, "none");
+		expect(cost).toBe("0");
+	});
+
+	it("calculates cost when retention level is retain", () => {
+		const cost = calculateDataStorageCost(500000, 0, 500000, 0, "retain");
+		expect(cost).toBe("0.00001");
+	});
+
+	it("calculates cost when retention level is null", () => {
+		const cost = calculateDataStorageCost(500000, 0, 500000, 0, null);
+		expect(cost).toBe("0.00001");
+	});
+
+	it("calculates cost when retention level is undefined", () => {
+		const cost = calculateDataStorageCost(500000, 0, 500000, 0, undefined);
+		expect(cost).toBe("0.00001");
+	});
+
+	it("handles null and undefined token values", () => {
+		const cost = calculateDataStorageCost(null, undefined, null, undefined);
+		expect(cost).toBe("0");
+	});
+
+	it("handles string token values", () => {
+		const cost = calculateDataStorageCost("500000", "0", "500000", "0");
+		expect(cost).toBe("0.00001");
 	});
 });
