@@ -2311,7 +2311,7 @@ chat.openapi(completions, async (c) => {
 				);
 
 				if (finishReason !== "client_error") {
-					logger.error("Provider error", {
+					logger.warn("Provider error", {
 						status: res.status,
 						errorText: errorResponseText,
 						usedProvider,
@@ -3791,7 +3791,7 @@ chat.openapi(completions, async (c) => {
 		);
 
 		if (finishReason !== "client_error") {
-			logger.error("Provider error", {
+			logger.warn("Provider error", {
 				status: res.status,
 				errorText: errorResponseText,
 				usedProvider,
