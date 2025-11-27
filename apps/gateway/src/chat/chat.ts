@@ -460,6 +460,11 @@ chat.openapi(completions, async (c) => {
 	// Extract custom X-LLMGateway-* headers
 	const customHeaders = extractCustomHeaders(c);
 
+	// Check for X-No-Fallback header to disable provider fallback on low uptime
+	const noFallback =
+		c.req.raw.headers.get("x-no-fallback") === "true" ||
+		c.req.raw.headers.get("X-No-Fallback") === "true";
+
 	// Store the original llmgateway model ID for logging purposes
 	const initialRequestedModel = modelInput;
 
@@ -1070,7 +1075,10 @@ chat.openapi(completions, async (c) => {
 				if (cheapestResult) {
 					usedProvider = cheapestResult.provider.providerId;
 					usedModel = cheapestResult.provider.modelName;
-					routingMetadata = cheapestResult.metadata;
+					routingMetadata = {
+						...cheapestResult.metadata,
+						...(noFallback ? { noFallback: true } : {}),
+					};
 				} else {
 					// Fallback to first available provider if price comparison fails
 					usedProvider = finalProviders[0].providerId;
@@ -1117,7 +1125,9 @@ chat.openapi(completions, async (c) => {
 
 	// Check uptime for specifically requested providers (not llmgateway or custom)
 	// If uptime is below 80%, route to an alternative provider instead
+	// Skip this fallback if X-No-Fallback header is set
 	if (
+		!noFallback &&
 		usedProvider &&
 		requestedProvider &&
 		requestedProvider !== "llmgateway" &&
@@ -1305,7 +1315,10 @@ chat.openapi(completions, async (c) => {
 				if (cheapestResult) {
 					usedProvider = cheapestResult.provider.providerId;
 					usedModel = cheapestResult.provider.modelName;
-					routingMetadata = cheapestResult.metadata;
+					routingMetadata = {
+						...cheapestResult.metadata,
+						...(noFallback ? { noFallback: true } : {}),
+					};
 				} else {
 					usedProvider = availableModelProviders[0].providerId;
 					usedModel = availableModelProviders[0].modelName;
@@ -1373,6 +1386,7 @@ chat.openapi(completions, async (c) => {
 					throughput: providerMetrics?.throughput,
 				},
 			],
+			...(noFallback ? { noFallback: true } : {}),
 		};
 	}
 
