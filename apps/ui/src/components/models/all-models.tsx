@@ -30,6 +30,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 
 import Footer from "@/components/landing/footer";
+import { ModelCodeExampleDialog } from "@/components/models/model-code-example-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
@@ -993,22 +994,30 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 											<code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]">
 												{model.id}
 											</code>
-											<Button
-												variant="ghost"
-												size="sm"
-												className="h-5 w-5 p-0"
-												onClick={(e) => {
-													e.stopPropagation();
-													copyToClipboard(model.id);
-												}}
-												title="Copy model ID"
-											>
-												{copiedModel === model.id ? (
-													<Check className="h-3 w-3 text-green-600" />
-												) : (
-													<Copy className="h-3 w-3" />
-												)}
-											</Button>
+											<div className="flex items-center gap-1">
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-5 w-5 p-0"
+													onClick={(e) => {
+														e.stopPropagation();
+														copyToClipboard(model.id);
+													}}
+													title="Copy root model ID"
+												>
+													{copiedModel === model.id ? (
+														<Check className="h-3 w-3 text-green-600" />
+													) : (
+														<Copy className="h-3 w-3" />
+													)}
+												</Button>
+												<div
+													onClick={(e) => e.stopPropagation()}
+													onMouseDown={(e) => e.stopPropagation()}
+												>
+													<ModelCodeExampleDialog modelId={model.id} />
+												</div>
+											</div>
 										</div>
 									</div>
 								</TableCell>

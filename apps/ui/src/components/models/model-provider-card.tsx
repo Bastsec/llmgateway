@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ModelCodeExampleDialog } from "@/components/models/model-code-example-dialog";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
 import { Card, CardContent } from "@/lib/components/card";
@@ -136,18 +137,23 @@ export function ModelProviderCard({
 								<code className="text-xs bg-muted px-2 py-1 rounded font-mono">
 									{providerModelName}
 								</code>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={copyToClipboard}
-									className="h-5 w-5 p-0"
-								>
-									{copied ? (
-										<Check className="h-3 w-3 text-green-600" />
-									) : (
-										<Copy className="h-3 w-3" />
-									)}
-								</Button>
+								<div className="flex items-center gap-1">
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={copyToClipboard}
+										className="h-5 w-5 p-0"
+										type="button"
+										aria-label="Copy model id"
+									>
+										{copied ? (
+											<Check className="h-3 w-3 text-green-600" />
+										) : (
+											<Copy className="h-3 w-3" />
+										)}
+									</Button>
+									<ModelCodeExampleDialog modelId={providerModelName} />
+								</div>
 							</div>
 						</div>
 					</div>

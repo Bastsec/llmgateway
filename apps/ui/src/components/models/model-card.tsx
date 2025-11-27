@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ModelCodeExampleDialog } from "@/components/models/model-code-example-dialog";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
 import { Card } from "@/lib/components/card";
@@ -95,6 +96,12 @@ export function ModelCard({
 							<h3 className="text-2xl font-bold text-foreground tracking-tight">
 								{model.name || model.id}
 							</h3>
+							<div
+								onClick={(e) => e.stopPropagation()}
+								onMouseDown={(e) => e.stopPropagation()}
+							>
+								<ModelCodeExampleDialog modelId={model.id} />
+							</div>
 							{shouldShowStabilityWarning(model.stability) && (
 								<AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
 							)}
@@ -111,21 +118,24 @@ export function ModelCard({
 						<code className="text-sm font-mono text-muted-foreground flex-1 truncate">
 							{model.id}
 						</code>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="h-8 w-8 p-0 shrink-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-							onClick={(e) => {
-								e.stopPropagation();
-								copyToClipboard(model.id);
-							}}
-						>
-							{copiedModel === model.id ? (
-								<Check className="h-4 w-4 text-green-400" />
-							) : (
-								<Copy className="h-4 w-4" />
-							)}
-						</Button>
+						<div className="flex items-center gap-1">
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-8 w-8 p-0 shrink-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+								onClick={(e) => {
+									e.stopPropagation();
+									copyToClipboard(model.id);
+								}}
+								title="Copy root model ID"
+							>
+								{copiedModel === model.id ? (
+									<Check className="h-4 w-4 text-green-400" />
+								) : (
+									<Copy className="h-4 w-4" />
+								)}
+							</Button>
+						</div>
 					</div>
 
 					{/* Info about root model auto-selection */}
@@ -192,21 +202,30 @@ export function ModelCard({
 										<code className="text-xs font-mono text-muted-foreground flex-1 truncate">
 											{providerModelId}
 										</code>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="h-7 w-7 p-0 shrink-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-											onClick={(e) => {
-												e.stopPropagation();
-												copyToClipboard(providerModelId);
-											}}
-										>
-											{copiedModel === providerModelId ? (
-												<Check className="h-3.5 w-3.5 text-green-400" />
-											) : (
-												<Copy className="h-3.5 w-3.5" />
-											)}
-										</Button>
+										<div className="flex items-center gap-1">
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-7 w-7 p-0 shrink-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+												onClick={(e) => {
+													e.stopPropagation();
+													copyToClipboard(providerModelId);
+												}}
+												title="Copy provider model ID"
+											>
+												{copiedModel === providerModelId ? (
+													<Check className="h-3.5 w-3.5 text-green-400" />
+												) : (
+													<Copy className="h-3.5 w-3.5" />
+												)}
+											</Button>
+											<div
+												onClick={(e) => e.stopPropagation()}
+												onMouseDown={(e) => e.stopPropagation()}
+											>
+												<ModelCodeExampleDialog modelId={providerModelId} />
+											</div>
+										</div>
 									</div>
 
 									<div className="grid grid-cols-2 gap-4">
