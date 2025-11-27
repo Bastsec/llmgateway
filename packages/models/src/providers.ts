@@ -26,6 +26,9 @@ export interface ProviderDefinition {
 	apiKeyInstructions?: string;
 	// Learn more URL for API key creation
 	learnMore?: string;
+	// Priority weight for routing (default: 1). Lower values deprioritize the provider.
+	// e.g., 0.8 means 20% lower priority (score multiplied by 1/0.8 = 1.25)
+	priority?: number;
 }
 
 export const providers = [
@@ -112,6 +115,7 @@ export const providers = [
 		color: "#4285f4",
 		website: "https://cloud.google.com/vertex-ai",
 		announcement: null,
+		priority: 0.5,
 	},
 	{
 		id: "groq",
