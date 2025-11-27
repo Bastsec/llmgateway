@@ -191,7 +191,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 					.trim()
 					.toLowerCase()
 					.split(/\s+/)
-					.map((t) => t.replace(/[^a-z0-9]/g, ""))
+					.map((t: string) => t.replace(/[^a-z0-9]/g, ""))
 					.filter(Boolean);
 
 				const providerStrings = (model.providerDetails || []).flatMap((p) => [
@@ -208,7 +208,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				const haystack = normalize(haystackParts.join(" "));
 				const normalizedQuery = normalize(searchQuery);
 
-				const containsAllTokens = queryTokens.every((t) =>
+				const containsAllTokens = queryTokens.every((t: string) =>
 					haystack.includes(t),
 				);
 				const containsPhrase = normalizedQuery
