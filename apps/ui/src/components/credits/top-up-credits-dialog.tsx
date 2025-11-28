@@ -268,24 +268,6 @@ function AmountStep({
 					))}
 				</div>
 
-				{hasBonus && feeData.bonusAmount && (
-					<div className="border-2 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-400 dark:border-green-600 shadow-sm">
-						<div className="flex items-start gap-3">
-							<span className="text-2xl">🎉</span>
-							<div className="flex-1">
-								<p className="text-base font-bold text-green-900 dark:text-green-100">
-									First-time bonus: +${feeData.bonusAmount.toFixed(2)}!
-								</p>
-								<p className="text-sm text-green-800 dark:text-green-200 mt-1">
-									You'll receive ${feeData.finalCreditAmount?.toFixed(2)} in
-									total credits
-									{feeData.bonusAmount >= 50 && " (max $50 bonus reached)"}
-								</p>
-							</div>
-						</div>
-					</div>
-				)}
-
 				{showIneligibilityMessage && (
 					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
 						<p className="text-sm text-amber-800 dark:text-amber-200">
@@ -738,24 +720,6 @@ function ConfirmPaymentStep({
 				</DialogDescription>
 			</DialogHeader>
 			<form onSubmit={handleSubmit} className="space-y-4 py-4">
-				{hasBonus && feeData.bonusAmount && (
-					<div className="border-2 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-400 dark:border-green-600 shadow-sm">
-						<div className="flex items-start gap-3">
-							<span className="text-2xl">🎉</span>
-							<div className="flex-1">
-								<p className="text-base font-bold text-green-900 dark:text-green-100">
-									First-time bonus: +${feeData.bonusAmount.toFixed(2)}!
-								</p>
-								<p className="text-sm text-green-800 dark:text-green-200 mt-1">
-									You'll receive ${feeData.finalCreditAmount?.toFixed(2)} in
-									total credits
-									{feeData.bonusAmount >= 50 && " (max $50 bonus reached)"}
-								</p>
-							</div>
-						</div>
-					</div>
-				)}
-
 				{showIneligibilityMessage && (
 					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
 						<p className="text-sm text-amber-800 dark:text-amber-200">
