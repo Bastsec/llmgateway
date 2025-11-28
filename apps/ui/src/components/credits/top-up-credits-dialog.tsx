@@ -51,6 +51,7 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 		"amount" | "payment" | "select-payment" | "confirm-payment" | "success"
 	>("amount");
 	const [amount, setAmount] = useState<number>(50);
+	const [promoCode, setPromoCode] = useState<string>("");
 	const [loading, setLoading] = useState(false);
 	const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
 		string | null
@@ -97,6 +98,8 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 					<AmountStep
 						amount={amount}
 						setAmount={setAmount}
+						promoCode={promoCode}
+						setPromoCode={setPromoCode}
 						onNext={() => {
 							if (paymentMethodsLoading) {
 								return; // Don't proceed if still loading
@@ -123,6 +126,7 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 				) : step === "confirm-payment" ? (
 					<ConfirmPaymentStep
 						amount={amount}
+						promoCode={promoCode}
 						paymentMethodId={selectedPaymentMethod!}
 						onSuccess={() => setStep("success")}
 						onBack={() => setStep("select-payment")}
@@ -137,6 +141,7 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 						<Elements stripe={stripe}>
 							<PaymentStep
 								amount={amount}
+								promoCode={promoCode}
 								onBack={() => setStep("amount")}
 								onSuccess={() => setStep("success")}
 								onCancel={handleClose}
@@ -156,11 +161,15 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 function AmountStep({
 	amount,
 	setAmount,
+	promoCode,
+	setPromoCode,
 	onNext,
 	onCancel,
 }: {
 	amount: number;
 	setAmount: (amount: number) => void;
+	promoCode: string;
+	setPromoCode: (code: string) => void;
 	onNext: () => void;
 	onCancel: () => void;
 }) {
@@ -171,12 +180,32 @@ function AmountStep({
 		"post",
 		"/payments/calculate-fees",
 		{
-			body: { amount },
+			body: { amount, promoCode: promoCode || undefined },
 		},
 		{
 			enabled: amount >= 5,
 		},
 	);
+
+	const hasBonus = feeData?.bonusAmount && feeData.bonusAmount > 0;
+	const showIneligibilityMessage =
+		feeData?.bonusEnabled &&
+		!feeData?.bonusEligible &&
+		feeData?.bonusIneligibilityReason;
+
+	const getIneligibilityMessage = () => {
+		if (!feeData?.bonusIneligibilityReason) {
+			return "";
+		}
+		switch (feeData.bonusIneligibilityReason) {
+			case "email_not_verified":
+				return "Please verify your email to qualify for the first-time credit bonus.";
+			case "already_purchased":
+				return "First-time credit bonus is only available for new customers.";
+			default:
+				return "You are not eligible for the current promotion.";
+		}
+	};
 
 	return (
 		<>
@@ -199,6 +228,33 @@ function AmountStep({
 						required
 					/>
 				</div>
+				<div className="space-y-1">
+					<div className="space-y-2">
+						<Label htmlFor="promo-code">
+							Promo code{" "}
+							<span className="text-xs text-muted-foreground">(optional)</span>
+						</Label>
+						<Input
+							id="promo-code"
+							type="text"
+							value={promoCode}
+							onChange={(e) => setPromoCode(e.target.value)}
+							placeholder="Enter promo code"
+							autoComplete="off"
+						/>
+					</div>
+					{promoCode && feeData && feeData.promoDiscountAmount ? (
+						<p className="text-xs text-green-600">
+							Black Friday promo applied: you&apos;ll save $
+							{feeData.promoDiscountAmount.toFixed(2)} on this top-up.
+						</p>
+					) : promoCode && feeData && !feeData.promoDiscountAmount ? (
+						<p className="text-xs text-amber-600">
+							This promo code is not currently applied (it may be invalid or
+							already used).
+						</p>
+					) : null}
+				</div>
 				<div className="flex flex-wrap gap-2">
 					{presetAmounts.map((preset) => (
 						<Button
@@ -211,6 +267,32 @@ function AmountStep({
 						</Button>
 					))}
 				</div>
+
+				{hasBonus && feeData.bonusAmount && (
+					<div className="border-2 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-400 dark:border-green-600 shadow-sm">
+						<div className="flex items-start gap-3">
+							<span className="text-2xl">🎉</span>
+							<div className="flex-1">
+								<p className="text-base font-bold text-green-900 dark:text-green-100">
+									First-time bonus: +${feeData.bonusAmount.toFixed(2)}!
+								</p>
+								<p className="text-sm text-green-800 dark:text-green-200 mt-1">
+									You'll receive ${feeData.finalCreditAmount?.toFixed(2)} in
+									total credits
+									{feeData.bonusAmount >= 50 && " (max $50 bonus reached)"}
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{showIneligibilityMessage && (
+					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+						<p className="text-sm text-amber-800 dark:text-amber-200">
+							ℹ️ {getIneligibilityMessage()}
+						</p>
+					</div>
+				)}
 
 				{amount >= 5 && (
 					<div className="border rounded-lg p-4 bg-muted/50">
@@ -250,10 +332,26 @@ function AmountStep({
 										<span>$0.00</span>
 									</div>
 								)}
+								{feeData.promoDiscountAmount && (
+									<div className="flex justify-between">
+										<span>Total before promo</span>
+										<span>${feeData.totalAmountBeforePromo.toFixed(2)}</span>
+									</div>
+								)}
 								<div className="border-t pt-1 flex justify-between font-medium">
-									<span>Total</span>
+									<span>
+										{feeData.promoDiscountAmount
+											? "Total after promo"
+											: "Total"}
+									</span>
 									<span>${feeData.totalAmount.toFixed(2)}</span>
 								</div>
+								{hasBonus && feeData.bonusAmount && (
+									<div className="flex justify-between text-green-600 font-semibold bg-green-50 dark:bg-green-950/50 -mx-2 px-2 py-1 rounded">
+										<span>🎉 First-time bonus</span>
+										<span>+${feeData.bonusAmount.toFixed(2)}</span>
+									</div>
+								)}
 							</div>
 						) : null}
 					</div>
@@ -277,6 +375,7 @@ function AmountStep({
 
 function PaymentStep({
 	amount,
+	promoCode,
 	onBack,
 	onSuccess,
 	onCancel,
@@ -284,6 +383,7 @@ function PaymentStep({
 	setLoading,
 }: {
 	amount: number;
+	promoCode: string;
 	onBack: () => void;
 	onSuccess: () => void;
 	onCancel: () => void;
@@ -320,7 +420,7 @@ function PaymentStep({
 
 				const setupResult = await stripe.confirmCardSetup(setupSecret, {
 					payment_method: {
-						card: elements.getElement(CardElement)!,
+						card: elements.getElement(CardElement) as any,
 					},
 				});
 
@@ -338,12 +438,13 @@ function PaymentStep({
 			const { clientSecret } = await topUpMutation({
 				body: {
 					amount,
+					promoCode: promoCode || undefined,
 				},
 			});
 
 			const result = await stripe.confirmCardPayment(clientSecret, {
 				payment_method: {
-					card: elements.getElement(CardElement)!,
+					card: elements.getElement(CardElement) as any,
 				},
 			});
 
@@ -554,6 +655,7 @@ function SelectPaymentStep({
 
 function ConfirmPaymentStep({
 	amount,
+	promoCode,
 	paymentMethodId,
 	onSuccess,
 	onBack,
@@ -562,6 +664,7 @@ function ConfirmPaymentStep({
 	setLoading,
 }: {
 	amount: number;
+	promoCode: string;
 	paymentMethodId: string;
 	onSuccess: () => void;
 	onBack: () => void;
@@ -581,9 +684,29 @@ function ConfirmPaymentStep({
 		"post",
 		"/payments/calculate-fees",
 		{
-			body: { amount, paymentMethodId },
+			body: { amount, paymentMethodId, promoCode: promoCode || undefined },
 		},
 	);
+
+	const hasBonus = feeData?.bonusAmount && feeData.bonusAmount > 0;
+	const showIneligibilityMessage =
+		feeData?.bonusEnabled &&
+		!feeData?.bonusEligible &&
+		feeData?.bonusIneligibilityReason;
+
+	const getIneligibilityMessage = () => {
+		if (!feeData?.bonusIneligibilityReason) {
+			return "";
+		}
+		switch (feeData.bonusIneligibilityReason) {
+			case "email_not_verified":
+				return "Please verify your email to qualify for the first-time credit bonus.";
+			case "already_purchased":
+				return "First-time credit bonus is only available for new customers.";
+			default:
+				return "You are not eligible for the current promotion.";
+		}
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -591,7 +714,9 @@ function ConfirmPaymentStep({
 		setLoading(true);
 
 		try {
-			await topUpMutation({ body: { amount, paymentMethodId } });
+			await topUpMutation({
+				body: { amount, paymentMethodId, promoCode: promoCode || undefined },
+			});
 			onSuccess();
 		} catch (error) {
 			console.error("Payment error:", error);
@@ -613,6 +738,32 @@ function ConfirmPaymentStep({
 				</DialogDescription>
 			</DialogHeader>
 			<form onSubmit={handleSubmit} className="space-y-4 py-4">
+				{hasBonus && feeData.bonusAmount && (
+					<div className="border-2 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-400 dark:border-green-600 shadow-sm">
+						<div className="flex items-start gap-3">
+							<span className="text-2xl">🎉</span>
+							<div className="flex-1">
+								<p className="text-base font-bold text-green-900 dark:text-green-100">
+									First-time bonus: +${feeData.bonusAmount.toFixed(2)}!
+								</p>
+								<p className="text-sm text-green-800 dark:text-green-200 mt-1">
+									You'll receive ${feeData.finalCreditAmount?.toFixed(2)} in
+									total credits
+									{feeData.bonusAmount >= 50 && " (max $50 bonus reached)"}
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{showIneligibilityMessage && (
+					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+						<p className="text-sm text-amber-800 dark:text-amber-200">
+							ℹ️ {getIneligibilityMessage()}
+						</p>
+					</div>
+				)}
+
 				<div className="border rounded-lg p-4">
 					<p className="font-medium mb-3">Payment Summary</p>
 					{feeDataLoading ? (
@@ -651,10 +802,24 @@ function ConfirmPaymentStep({
 										<span>$0.00</span>
 									</div>
 								)}
+							{feeData.promoDiscountAmount && (
+								<div className="flex justify-between">
+									<span>Total before promo</span>
+									<span>${feeData.totalAmountBeforePromo.toFixed(2)}</span>
+								</div>
+							)}
 							<div className="border-t pt-2 flex justify-between font-medium">
-								<span>Total</span>
+								<span>
+									{feeData.promoDiscountAmount ? "Total after promo" : "Total"}
+								</span>
 								<span>${feeData.totalAmount.toFixed(2)}</span>
 							</div>
+							{hasBonus && feeData.bonusAmount && (
+								<div className="flex justify-between text-green-600 font-semibold bg-green-50 dark:bg-green-950/50 -mx-2 px-2 py-1 rounded">
+									<span>🎉 First-time bonus</span>
+									<span>+${feeData.bonusAmount.toFixed(2)}</span>
+								</div>
+							)}
 						</div>
 					) : (
 						<p className="text-sm text-muted-foreground">Amount: ${amount}</p>
