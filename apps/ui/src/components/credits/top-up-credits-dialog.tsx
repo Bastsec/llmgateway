@@ -188,24 +188,24 @@ function AmountStep({
 	);
 
 	const hasBonus = feeData?.bonusAmount && feeData.bonusAmount > 0;
-	const showIneligibilityMessage =
-		feeData?.bonusEnabled &&
-		!feeData?.bonusEligible &&
-		feeData?.bonusIneligibilityReason;
+	// const showIneligibilityMessage =
+	// 	feeData?.bonusEnabled &&
+	// 	!feeData?.bonusEligible &&
+	// 	feeData?.bonusIneligibilityReason;
 
-	const getIneligibilityMessage = () => {
-		if (!feeData?.bonusIneligibilityReason) {
-			return "";
-		}
-		switch (feeData.bonusIneligibilityReason) {
-			case "email_not_verified":
-				return "Please verify your email to qualify for the first-time credit bonus.";
-			case "already_purchased":
-				return "First-time credit bonus is only available for new customers.";
-			default:
-				return "You are not eligible for the current promotion.";
-		}
-	};
+	// const getIneligibilityMessage = () => {
+	// 	if (!feeData?.bonusIneligibilityReason) {
+	// 		return "";
+	// 	}
+	// 	switch (feeData.bonusIneligibilityReason) {
+	// 		case "email_not_verified":
+	// 			return "Please verify your email to qualify for the first-time credit bonus.";
+	// 		case "already_purchased":
+	// 			return "First-time credit bonus is only available for new customers.";
+	// 		default:
+	// 			return "You are not eligible for the current promotion.";
+	// 	}
+	// };
 
 	return (
 		<>
@@ -268,13 +268,13 @@ function AmountStep({
 					))}
 				</div>
 
-				{showIneligibilityMessage && (
+				{/* {showIneligibilityMessage && (
 					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
 						<p className="text-sm text-amber-800 dark:text-amber-200">
 							ℹ️ {getIneligibilityMessage()}
 						</p>
 					</div>
-				)}
+				)} */}
 
 				{amount >= 5 && (
 					<div className="border rounded-lg p-4 bg-muted/50">
