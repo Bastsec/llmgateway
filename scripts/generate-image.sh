@@ -9,7 +9,7 @@ curl -X POST --location "http://localhost:4001/v1/chat/completions" \
 	"model": "google-ai-studio/gemini-3-pro-image-preview",
 	"image_config": {
 		"aspect_ratio": "1:1",
-		"image_size": "4K"
+		"image_size": "1K"
 	},
 	"messages": [
 		{
@@ -17,7 +17,7 @@ curl -X POST --location "http://localhost:4001/v1/chat/completions" \
 			"content": [
 				{
 					"type": "text",
-					"text": "Generate an image of a cyberpunk city at night"
+					"text": "make this image more colorful: https://img.freepik.com/free-photo/los-angeles-downtown-buildings-night_649448-298.jpg?semt=ais_hybrid&w=740&q=80"
 				}
 			]
 		}
