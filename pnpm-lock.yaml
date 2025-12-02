@@ -473,8 +473,8 @@ importers:
         specifier: 5.4.0
         version: 5.4.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react-syntax-highlighter:
-        specifier: 16.0.0
-        version: 16.0.0(react@19.2.0)
+        specifier: 16.1.0
+        version: 16.1.0(react@19.2.0)
       shiki:
         specifier: 3.13.0
         version: 3.13.0
@@ -8348,8 +8348,9 @@ packages:
       '@types/react':
         optional: true
 
-  react-syntax-highlighter@16.0.0:
-    resolution: {integrity: sha512-xFteM6h1e6xzuHESS45eh5Nq84K2tnP9xsnzHMAuQyQjhVJFMp2CntURH4Hux/z1SyQf6cKSc2dR6LpxpetoGw==}
+  react-syntax-highlighter@16.1.0:
+    resolution: {integrity: sha512-E40/hBiP5rCNwkeBN1vRP+xow1X0pndinO+z3h7HLsHyjztbyjfzNWNKuAsJj+7DLam9iT4AaaOZnueCU+Nplg==}
+    engines: {node: '>= 16.20.2'}
     peerDependencies:
       react: '>= 0.14.0'
 
@@ -18225,7 +18226,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.6
 
-  react-syntax-highlighter@16.0.0(react@19.2.0):
+  react-syntax-highlighter@16.1.0(react@19.2.0):
     dependencies:
       '@babel/runtime': 7.28.4
       highlight.js: 10.7.3
