@@ -72,6 +72,7 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 		{ name: "Pricing", href: "/#pricing" },
 		{ name: "Docs", href: config.docsUrl ?? "", external: true },
 		{ name: "Models", href: "/models" },
+
 		{
 			name: "Chat",
 			href:
@@ -83,8 +84,9 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 
 	const resourcesItems = [
 		{ name: "Blog", href: "/blog" },
-		{ name: "Changelog", href: "/changelog" },
 		{ name: "Providers", href: "/providers" },
+		{ name: "Changelog", href: "/changelog" },
+		{ name: "Referral Program", href: "/referrals" },
 		{ name: "Docs", href: config.docsUrl ?? "", external: true },
 		{ name: "Compare", href: "/models/compare" },
 		{ name: "Contact Us", href: "mailto:contact@llmgateway.io" },
@@ -117,6 +119,11 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 			title: "Changelog",
 			href: "/changelog",
 			description: "What’s new in LLM Gateway across releases.",
+		},
+		{
+			title: "Referral Program",
+			href: "/referrals",
+			description: "Earn 1% of LLM spending.",
 		},
 		{
 			title: "Providers",
