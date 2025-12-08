@@ -1,10 +1,20 @@
 "use client";
-import { Menu, X, Github } from "lucide-react";
+
+import { Github, Menu, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { AuthLink } from "@/components/shared/auth-link";
 import { Button } from "@/lib/components/button";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@/lib/components/command";
 import {
 	NavigationMenu,
 	NavigationMenuContent,
@@ -13,14 +23,41 @@ import {
 	NavigationMenuList,
 	NavigationMenuTrigger,
 } from "@/lib/components/navigation-menu";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/lib/components/popover";
+import { getProviderIcon } from "@/lib/components/providers-icons";
 import { useAppConfig } from "@/lib/config";
 import Logo from "@/lib/icons/Logo";
 import { cn } from "@/lib/utils";
+
+import { getProviderDefinition, models } from "@llmgateway/models";
 
 import { ThemeToggle } from "./theme-toggle";
 
 import type { Route } from "next";
 import type { ReactNode } from "react";
+
+interface ModelSearchEntry {
+	id: string;
+	name: string;
+	providerId: string;
+	providerName: string;
+	publishedAt?: Date;
+	free?: boolean;
+}
+
+function formatMonthLabel(date?: Date) {
+	if (!date) {
+		return "Unknown date";
+	}
+	return date.toLocaleDateString(undefined, {
+		year: "numeric",
+		month: "long",
+	});
+}
 
 function ListItem({
 	title,
@@ -65,22 +102,161 @@ function ListItem({
 	);
 }
 
+function ModelSearch() {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+
+	const entries = useMemo<ModelSearchEntry[]>(() => {
+		const now = new Date();
+		const map = new Map<string, ModelSearchEntry>();
+
+		for (const model of models) {
+			if (model.id === "custom") {
+				continue;
+			}
+
+			const publishedAt =
+				(model.publishedAt instanceof Date ? model.publishedAt : undefined) ??
+				(model.releasedAt instanceof Date ? model.releasedAt : undefined);
+
+			for (const mapping of model.providers as any[]) {
+				const isDeactivated =
+					mapping.deactivatedAt &&
+					new Date(mapping.deactivatedAt).getTime() <= now.getTime();
+				if (isDeactivated) {
+					continue;
+				}
+
+				const provider = getProviderDefinition(mapping.providerId);
+
+				const key = `${String(mapping.providerId)}-${String(model.id)}`;
+				if (!map.has(key)) {
+					map.set(key, {
+						id: String(model.id),
+						name: (model.name as string | undefined) ?? String(model.id),
+						providerId: String(mapping.providerId),
+						providerName: provider?.name ?? String(mapping.providerId),
+						publishedAt,
+						free: (model as any).free || mapping.inputPrice === 0,
+					});
+				}
+			}
+		}
+
+		const list = Array.from(map.values());
+
+		list.sort((a, b) => {
+			const aTime = a.publishedAt?.getTime() ?? 0;
+			const bTime = b.publishedAt?.getTime() ?? 0;
+			if (bTime !== aTime) {
+				return bTime - aTime;
+			}
+			return a.name.localeCompare(b.name);
+		});
+
+		return list;
+	}, []);
+
+	const groups: [string, ModelSearchEntry[]][] = useMemo(() => {
+		const byMonth = new Map<string, ModelSearchEntry[]>();
+		for (const entry of entries as ModelSearchEntry[]) {
+			const label = formatMonthLabel(entry.publishedAt);
+			if (!byMonth.has(label)) {
+				byMonth.set(label, []);
+			}
+			byMonth.get(label)!.push(entry);
+		}
+		return Array.from(byMonth.entries());
+	}, [entries]);
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className="flex w-full items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+				>
+					<Search className="h-3.5 w-3.5 shrink-0" />
+					<span className="truncate">
+						Search models by provider, name, or ID…
+					</span>
+					<span className="ml-auto hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-flex">
+						⌘K
+					</span>
+				</button>
+			</PopoverTrigger>
+			<PopoverContent
+				className="w-[min(480px,90vw)] p-0"
+				side="bottom"
+				align="center"
+			>
+				<Command>
+					<CommandInput placeholder="Search models…" />
+					<CommandList>
+						<CommandEmpty>No models found.</CommandEmpty>
+						{groups.map(([label, items]) => (
+							<CommandGroup key={label} heading={label}>
+								{items.map((entry) => {
+									const ProviderIcon = getProviderIcon(entry.providerId);
+
+									return (
+										<CommandItem
+											key={`${entry.providerId}-${entry.id}`}
+											value={`${entry.providerName} ${entry.name} ${entry.id}`}
+											onSelect={() => {
+												router.push(`/models/${encodeURIComponent(entry.id)}`);
+												setOpen(false);
+											}}
+										>
+											<div className="flex items-center gap-2">
+												<div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+													{ProviderIcon ? (
+														<ProviderIcon className="h-4 w-4" />
+													) : (
+														<span className="text-[10px] font-medium uppercase text-muted-foreground">
+															{entry.providerName.charAt(0)}
+														</span>
+													)}
+												</div>
+												<div className="flex flex-col items-start">
+													<span className="text-xs font-medium">
+														{entry.providerName}: {entry.name}
+													</span>
+													<span className="text-[11px] text-muted-foreground">
+														{entry.id}
+														{entry.free ? " · Free tier" : null}
+													</span>
+												</div>
+											</div>
+										</CommandItem>
+									);
+								})}
+							</CommandGroup>
+						))}
+					</CommandList>
+				</Command>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 	const config = useAppConfig();
 
-	const menuItems = [
+	const menuItems: Array<{ name: string; href: string; external?: boolean }> = [
 		{ name: "Pricing", href: "/#pricing" },
 		{ name: "Docs", href: config.docsUrl ?? "", external: true },
 		{ name: "Models", href: "/models" },
-
-		{
-			name: "Chat",
-			href:
-				process.env.NODE_ENV === "development"
-					? "http://localhost:3003"
-					: "https://chat.llmgateway.io",
-		},
 	];
+
+	const chatItem: { name: string; href: string; external?: boolean } = {
+		name: "Chat",
+		href:
+			process.env.NODE_ENV === "development"
+				? "http://localhost:3003"
+				: "https://chat.llmgateway.io",
+		external: true,
+	};
 
 	const resourcesItems = [
 		{ name: "Blog", href: "/blog" },
@@ -88,6 +264,7 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 		{ name: "Changelog", href: "/changelog" },
 		{ name: "Referral Program", href: "/referrals" },
 		{ name: "Docs", href: config.docsUrl ?? "", external: true },
+		{ name: "Model Timeline", href: "/timeline" },
 		{ name: "Compare", href: "/models/compare" },
 		{ name: "Contact Us", href: "mailto:contact@llmgateway.io" },
 	];
@@ -181,33 +358,23 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 							</button>
 						</div>
 
-						<div className="m-auto hidden size-fit lg:block">
+						<div className="m-auto hidden items-center gap-4 lg:flex">
+							<div className="w-[140px] lg:w-[160px]">
+								<ModelSearch />
+							</div>
 							<NavigationMenu viewport={false}>
 								<NavigationMenuList className="flex gap-2 text-sm">
 									{menuItems.map((item, index) => (
 										<NavigationMenuItem key={index}>
-											{item.external ? (
-												<NavigationMenuLink asChild>
-													<a
-														href={item.href}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="text-muted-foreground hover:text-accent-foreground block duration-150 px-4 py-2"
-													>
-														{item.name}
-													</a>
-												</NavigationMenuLink>
-											) : (
-												<NavigationMenuLink asChild>
-													<Link
-														href={item.href as Route}
-														className="text-muted-foreground hover:text-accent-foreground block duration-150 px-4 py-2"
-														prefetch={true}
-													>
-														{item.name}
-													</Link>
-												</NavigationMenuLink>
-											)}
+											<NavigationMenuLink asChild>
+												<Link
+													href={item.href as Route}
+													className="text-muted-foreground hover:text-accent-foreground block duration-150 px-4 py-2"
+													prefetch={true}
+												>
+													{item.name}
+												</Link>
+											</NavigationMenuLink>
 										</NavigationMenuItem>
 									))}
 
@@ -220,7 +387,7 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 												<li className="row-span-3">
 													<NavigationMenuLink asChild>
 														<a
-															className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
+															className="flex h-full w-full select-none flex-col justify-end rounded-md bg-linear-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
 															href={
 																config.docsUrl
 																	? `${config.docsUrl}/quick-start`
@@ -256,6 +423,21 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 											</ul>
 										</NavigationMenuContent>
 									</NavigationMenuItem>
+
+									<NavigationMenuItem>
+										<NavigationMenuLink asChild>
+											<a
+												href={chatItem.href}
+												target={chatItem.external ? "_blank" : undefined}
+												rel={
+													chatItem.external ? "noopener noreferrer" : undefined
+												}
+												className="text-muted-foreground hover:text-accent-foreground block duration-150 px-4 py-2"
+											>
+												{chatItem.name}
+											</a>
+										</NavigationMenuLink>
+									</NavigationMenuItem>
 								</NavigationMenuList>
 							</NavigationMenu>
 						</div>
@@ -285,6 +467,19 @@ export const Navbar = ({ children }: { children?: React.ReactNode }) => {
 											)}
 										</li>
 									))}
+
+									<li>
+										<a
+											href={chatItem.href}
+											target={chatItem.external ? "_blank" : undefined}
+											rel={
+												chatItem.external ? "noopener noreferrer" : undefined
+											}
+											className="text-muted-foreground hover:text-accent-foreground block duration-150"
+										>
+											{chatItem.name}
+										</a>
+									</li>
 
 									<li className="space-y-2">
 										<div className="text-muted-foreground text-sm font-medium">
