@@ -1,7 +1,6 @@
 "use client";
 
 import { CostBreakdownChart } from "@/components/usage/cost-breakdown-chart";
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import {
 	Card,
 	CardContent,
@@ -19,8 +18,6 @@ interface CostBreakdownCardProps {
 export function CostBreakdownCard({
 	initialActivityData,
 }: CostBreakdownCardProps) {
-	const { selectedProject } = useDashboardNavigation();
-
 	return (
 		<Card>
 			<CardHeader>
@@ -30,10 +27,7 @@ export function CostBreakdownCard({
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="h-[350px]">
-				<CostBreakdownChart
-					initialData={initialActivityData}
-					projectId={selectedProject?.id}
-				/>
+				<CostBreakdownChart initialData={initialActivityData} />
 			</CardContent>
 		</Card>
 	);
