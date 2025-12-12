@@ -1076,4 +1076,33 @@ export const openaiModels = [
 			},
 		],
 	},
+	{
+		id: "gpt-5.2-chat-latest",
+		name: "GPT-5.2 Chat",
+		description:
+			"GPT-5.2 Chat is the ChatGPT production snapshot for chat use. Use it to try the latest chat-focused updates.",
+		family: "openai",
+		releasedAt: new Date("2025-12-11"),
+		publishedAt: new Date("2025-12-11"),
+		providers: [
+			{
+				providerId: "openai",
+				modelName: "gpt-5.2-chat-latest",
+				inputPrice: 1.75 / 1e6,
+				outputPrice: 14.0 / 1e6,
+				cachedInputPrice: 0.175 / 1e6,
+				requestPrice: 0,
+				contextSize: 128000,
+				maxOutput: 16400,
+				streaming: true,
+				reasoning: true,
+				reasoningOutput: "omit",
+				vision: true,
+				tools: true,
+				supportsResponsesApi: true,
+				jsonOutputSchema: false,
+				jsonOutput: false,
+			},
+		],
+	},
 ] as const satisfies ModelDefinition[];
