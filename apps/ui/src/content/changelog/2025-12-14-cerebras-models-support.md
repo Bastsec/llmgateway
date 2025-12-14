@@ -17,7 +17,7 @@ Cerebras is available via the LLM Gateway with the provider ID `cerebras`. Learn
 
 ## 🎯 New Cerebras Models
 
-[Cerebras models](/provider/cerebras)
+[Cerebras models](/providers/cerebras)
 
 ## 🚀 Getting Started with Cerebras
 
