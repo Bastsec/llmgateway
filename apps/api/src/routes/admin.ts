@@ -298,33 +298,36 @@ admin.openapi(getTokenMetrics, async (c) => {
 	const days = windowParam === "30d" ? 30 : 7;
 	const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-	// First, compute global aggregates over the time window without grouping.
-	const [totalsRow] = await db
+	const rows = await db
 		.select({
-			totalRequests: sql<number>`COUNT(*)`.as("totalRequests"),
-			totalTokens: sql<number>`COALESCE(SUM(${tables.log.totalTokens}), 0)`.as(
-				"totalTokens",
-			),
+			usedModel: tables.log.usedModel,
+			usedProvider: tables.log.usedProvider,
+			requestsCount: sql<number>`COUNT(*)`.as("requestsCount"),
+			inputTokens:
+				sql<number>`COALESCE(SUM(CAST(${tables.log.promptTokens} AS INTEGER)), 0)`.as(
+					"inputTokens",
+				),
+			outputTokens:
+				sql<number>`COALESCE(SUM(CAST(${tables.log.completionTokens} AS INTEGER)), 0)`.as(
+					"outputTokens",
+				),
+			cachedTokens:
+				sql<number>`COALESCE(SUM(CAST(${tables.log.cachedTokens} AS INTEGER)), 0)`.as(
+					"cachedTokens",
+				),
+			totalTokens:
+				sql<number>`COALESCE(SUM(CAST(${tables.log.totalTokens} AS INTEGER)), 0)`.as(
+					"totalTokens",
+				),
 			totalCost: sql<number>`COALESCE(SUM(${tables.log.cost}), 0)`.as(
 				"totalCost",
-			),
-			inputTokens: sql<number>`COALESCE(SUM(${tables.log.promptTokens}), 0)`.as(
-				"inputTokens",
 			),
 			inputCost: sql<number>`COALESCE(SUM(${tables.log.inputCost}), 0)`.as(
 				"inputCost",
 			),
-			outputTokens:
-				sql<number>`COALESCE(SUM(${tables.log.completionTokens}), 0)`.as(
-					"outputTokens",
-				),
 			outputCost: sql<number>`COALESCE(SUM(${tables.log.outputCost}), 0)`.as(
 				"outputCost",
 			),
-			cachedTokens:
-				sql<number>`COALESCE(SUM(${tables.log.cachedTokens}), 0)`.as(
-					"cachedTokens",
-				),
 			cachedCost:
 				sql<number>`COALESCE(SUM(${tables.log.cachedInputCost}), 0)`.as(
 					"cachedCost",
@@ -333,42 +336,39 @@ admin.openapi(getTokenMetrics, async (c) => {
 		.from(tables.log)
 		.where(
 			and(gte(tables.log.createdAt, startDate), lt(tables.log.createdAt, now)),
-		);
+		)
+		.groupBy(tables.log.usedModel, tables.log.usedProvider);
 
-	const totalRequests = Number(totalsRow?.totalRequests ?? 0);
-	const totalTokens = Number(totalsRow?.totalTokens ?? 0);
-	const totalCost = Number(totalsRow?.totalCost ?? 0);
-	const inputTokens = Number(totalsRow?.inputTokens ?? 0);
-	const inputCost = Number(totalsRow?.inputCost ?? 0);
-	const outputTokens = Number(totalsRow?.outputTokens ?? 0);
-	const outputCost = Number(totalsRow?.outputCost ?? 0);
-	const cachedTokens = Number(totalsRow?.cachedTokens ?? 0);
-	const cachedCost = Number(totalsRow?.cachedCost ?? 0);
+	let totalRequests = 0;
+	let totalTokens = 0;
+	let totalCost = 0;
+	let inputTokens = 0;
+	let inputCost = 0;
+	let outputTokens = 0;
+	let outputCost = 0;
+	let cachedTokens = 0;
+	let cachedCost = 0;
 
-	// Then, compute the most-used model/provider combination with a lightweight grouped query.
 	let mostUsedModel: string | null = null;
 	let mostUsedProvider: string | null = null;
 	let mostUsedModelRequestCount = 0;
 
-	const mostUsedRows = await db
-		.select({
-			usedModel: tables.log.usedModel,
-			usedProvider: tables.log.usedProvider,
-			requestsCount: sql<number>`COUNT(*)`.as("requestsCount"),
-		})
-		.from(tables.log)
-		.where(
-			and(gte(tables.log.createdAt, startDate), lt(tables.log.createdAt, now)),
-		)
-		.groupBy(tables.log.usedModel, tables.log.usedProvider)
-		.orderBy(sql`requestsCount DESC`)
-		.limit(1);
+	for (const row of rows) {
+		totalRequests += row.requestsCount;
+		totalTokens += row.totalTokens;
+		totalCost += row.totalCost;
+		inputTokens += row.inputTokens;
+		inputCost += row.inputCost;
+		outputTokens += row.outputTokens;
+		outputCost += row.outputCost;
+		cachedTokens += row.cachedTokens;
+		cachedCost += row.cachedCost;
 
-	if (mostUsedRows.length > 0) {
-		const row = mostUsedRows[0];
-		mostUsedModelRequestCount = row.requestsCount;
-		mostUsedModel = row.usedModel;
-		mostUsedProvider = row.usedProvider;
+		if (row.requestsCount > mostUsedModelRequestCount) {
+			mostUsedModelRequestCount = row.requestsCount;
+			mostUsedModel = row.usedModel;
+			mostUsedProvider = row.usedProvider;
+		}
 	}
 
 	return c.json({
