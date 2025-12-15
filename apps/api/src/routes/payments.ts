@@ -83,6 +83,7 @@ payments.openapi(createPaymentIntent, async (c) => {
 		},
 		with: {
 			organization: true,
+			user: true,
 		},
 	});
 
@@ -154,6 +155,7 @@ payments.openapi(createSetupIntent, async (c) => {
 		},
 		with: {
 			organization: true,
+			user: true,
 		},
 	});
 
@@ -637,20 +639,20 @@ const initializePaystackTopUp = createRoute({
 	},
 	responses: {
 		200: {
-				content: {
-					"application/json": {
-						schema: z.object({
-							authorizationUrl: z.string().url(),
-							reference: z.string(),
-							accessCode: z.string(),
-							feeBreakdown: feeBreakdownSchema,
-						}),
-					},
+			content: {
+				"application/json": {
+					schema: z.object({
+						authorizationUrl: z.string().url(),
+						reference: z.string(),
+						accessCode: z.string(),
+						feeBreakdown: feeBreakdownSchema,
+					}),
 				},
-				description: "Initialized Paystack transaction",
 			},
+			description: "Initialized Paystack transaction",
 		},
-	});
+	},
+});
 
 payments.openapi(initializePaystackTopUp, async (c) => {
 	const user = c.get("user");
@@ -658,14 +660,14 @@ payments.openapi(initializePaystackTopUp, async (c) => {
 	if (!user) {
 		throw new HTTPException(401, {
 			message: "Unauthorized",
-			});
-		}
+		});
+	}
 
-		if (!process.env.PAYSTACK_SECRET_KEY) {
-			throw new HTTPException(400, {
-				message: "Paystack is not configured",
-			});
-		}
+	if (!process.env.PAYSTACK_SECRET_KEY) {
+		throw new HTTPException(400, {
+			message: "Paystack is not configured",
+		});
+	}
 
 	const {
 		amount,
@@ -683,11 +685,11 @@ payments.openapi(initializePaystackTopUp, async (c) => {
 		},
 	});
 
-		if (!userOrganization || !userOrganization.organization) {
-			throw new HTTPException(404, {
-				message: "Organization not found",
-			});
-		}
+	if (!userOrganization || !userOrganization.organization) {
+		throw new HTTPException(404, {
+			message: "Organization not found",
+		});
+	}
 
 	const organization = userOrganization.organization;
 
@@ -758,14 +760,14 @@ payments.openapi(initializePaystackTopUp, async (c) => {
 			accessCode: initialization.access_code,
 			feeBreakdown,
 		});
-		} catch (error) {
-			await recordFailedPaystackCharge(organization.id, transaction.id, "");
-			logger.error("Failed to initialize Paystack transaction", error as Error);
-			throw new HTTPException(400, {
-				message: "Failed to initialize Paystack transaction",
-			});
-		}
-	});
+	} catch (error) {
+		await recordFailedPaystackCharge(organization.id, transaction.id, "");
+		logger.error("Failed to initialize Paystack transaction", error as Error);
+		throw new HTTPException(400, {
+			message: "Failed to initialize Paystack transaction",
+		});
+	}
+});
 
 const paystackTopUpWithSavedMethod = createRoute({
 	method: "post",
@@ -805,19 +807,19 @@ payments.openapi(paystackTopUpWithSavedMethod, async (c) => {
 		throw new HTTPException(401, {
 			message: "Unauthorized",
 		});
-		}
+	}
 
-		if (!process.env.PAYSTACK_SECRET_KEY) {
-			throw new HTTPException(400, {
-				message: "Paystack is not configured",
-			});
-		}
+	if (!process.env.PAYSTACK_SECRET_KEY) {
+		throw new HTTPException(400, {
+			message: "Paystack is not configured",
+		});
+	}
 
-		const { amount, paymentMethodId } = c.req.valid("json");
+	const { amount, paymentMethodId } = c.req.valid("json");
 
-		const userOrganization = await db.query.userOrganization.findFirst({
-			where: {
-				userId: user.id,
+	const userOrganization = await db.query.userOrganization.findFirst({
+		where: {
+			userId: user.id,
 		},
 		with: {
 			organization: true,
@@ -1047,7 +1049,13 @@ payments.openapi(calculateFeesRoute, async (c) => {
 
 	if (bonusEnabled) {
 		// Check email verification
-		if (!userOrganization.user || !userOrganization.user.emailVerified) {
+		const dbUser = await db.query.user.findFirst({
+			where: {
+				id: user.id,
+			},
+		});
+
+		if (!dbUser?.emailVerified) {
 			bonusIneligibilityReason = "email_not_verified";
 		} else {
 			// Check if this is the first credit purchase

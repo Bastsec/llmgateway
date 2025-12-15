@@ -2,6 +2,8 @@ export {
 	calculateFees,
 	type FeeBreakdown,
 	type FeeCalculationInput,
+	type PaymentChannel,
+	type PaymentProvider,
 } from "./fees.js";
 
 export {

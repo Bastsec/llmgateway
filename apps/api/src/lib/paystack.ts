@@ -233,7 +233,7 @@ interface InitializeTransactionParams {
 }
 
 export async function initializePaystackTransaction({
-	amount,
+	amount: _amount,
 	feeBreakdown,
 	email,
 	organizationId,
@@ -288,7 +288,7 @@ interface ChargeAuthorizationParams {
 }
 
 export async function chargePaystackAuthorization({
-	amount,
+	amount: _amount,
 	feeBreakdown,
 	email,
 	authorizationCode,

@@ -37,7 +37,7 @@ const webhookRoute = createRoute({
 });
 
 paystackRoutes.openapi(webhookRoute, async (c) => {
-	const signature = c.req.header("x-paystack-signature");
+	const signature = c.req.header("x-paystack-signature") ?? null;
 	const rawBody = await c.req.raw.text();
 
 	if (!verifyPaystackSignature(signature, rawBody)) {
