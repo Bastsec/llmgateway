@@ -4,13 +4,11 @@ import { Pool } from "pg";
 import { redisClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
+import { getPoolConfig } from "./pg.js";
 import { RedisCache } from "./redis-cache.js";
 import { relations } from "./relations.js";
 
-const cachedPool = new Pool({
-	connectionString:
-		process.env.DATABASE_URL || "postgres://postgres:pw@localhost:5432/db",
-});
+const cachedPool = new Pool(getPoolConfig());
 
 export const cdb = drizzle({
 	client: cachedPool,

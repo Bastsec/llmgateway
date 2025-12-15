@@ -2,11 +2,18 @@ import { Redis } from "ioredis";
 
 import { logger } from "@llmgateway/logger";
 
-export const redisClient = new Redis({
-	host: process.env.REDIS_HOST || "localhost",
-	port: Number(process.env.REDIS_PORT) || 6379,
-	password: process.env.REDIS_PASSWORD,
-});
+const redisUrl = process.env.REDIS_URL;
+const redisPort = Number(process.env.REDIS_PORT) || 6379;
+const useTls = process.env.REDIS_TLS === "true" || redisPort === 6380;
+
+export const redisClient = redisUrl
+	? new Redis(redisUrl)
+	: new Redis({
+			host: process.env.REDIS_HOST || "localhost",
+			port: redisPort,
+			password: process.env.REDIS_PASSWORD,
+			...(useTls ? { tls: {} } : {}),
+		});
 
 redisClient.on("error", (err) =>
 	logger.error(

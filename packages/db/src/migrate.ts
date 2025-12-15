@@ -1,22 +1,20 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { Pool } from "pg";
 
 import { logger } from "@llmgateway/logger";
+
+import { getPoolConfig } from "./pg.js";
 
 /**
  * Run database migrations using drizzle-orm
  * This function connects to the database and applies all pending migrations
  */
 export async function runMigrations(): Promise<void> {
-	const databaseUrl =
-		process.env.DATABASE_URL || "postgres://postgres:pw@localhost:5432/db";
-
 	logger.info("Starting database migrations");
 
-	// Create a drizzle instance for migrations
-	const migrationDb = drizzle({
-		connection: databaseUrl,
-	});
+	const pool = new Pool(getPoolConfig());
+	const migrationDb = drizzle({ client: pool });
 
 	try {
 		// Run migrations from the migrations folder
@@ -30,5 +28,14 @@ export async function runMigrations(): Promise<void> {
 			error instanceof Error ? error : new Error(String(error)),
 		);
 		throw error;
+	} finally {
+		try {
+			await pool.end();
+		} catch (error) {
+			logger.error(
+				"Failed to close migration pool",
+				error instanceof Error ? error : new Error(String(error)),
+			);
+		}
 	}
 }

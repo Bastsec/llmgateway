@@ -18,11 +18,18 @@ const originUrls =
 	"http://localhost:3002,http://localhost:3003,http://localhost:4002,http://localhost:3006";
 const isHosted = process.env.HOSTED === "true";
 
-export const redisClient = new Redis({
-	host: process.env.REDIS_HOST || "localhost",
-	port: Number(process.env.REDIS_PORT) || 6379,
-	password: process.env.REDIS_PASSWORD,
-});
+const redisUrl = process.env.REDIS_URL;
+const redisPort = Number(process.env.REDIS_PORT) || 6379;
+const useTls = process.env.REDIS_TLS === "true" || redisPort === 6380;
+
+export const redisClient = redisUrl
+	? new Redis(redisUrl)
+	: new Redis({
+			host: process.env.REDIS_HOST || "localhost",
+			port: redisPort,
+			password: process.env.REDIS_PASSWORD,
+			...(useTls ? { tls: {} } : {}),
+		});
 
 redisClient.on("error", (err: unknown) =>
 	logger.error(

@@ -4,12 +4,10 @@ import { Pool } from "pg";
 
 import { logger } from "@llmgateway/logger";
 
+import { getPoolConfig } from "./pg.js";
 import { relations } from "./relations.js";
 
-const pool = new Pool({
-	connectionString:
-		process.env.DATABASE_URL || "postgres://postgres:pw@localhost:5432/db",
-});
+const pool = new Pool(getPoolConfig());
 
 const instrumentedPool = instrumentDrizzle(pool, {
 	dbSystem: "postgresql",
