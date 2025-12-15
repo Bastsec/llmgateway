@@ -28,6 +28,7 @@ const organizationSchema = z.object({
 	autoTopUpThreshold: z.string().nullable(),
 	autoTopUpAmount: z.string().nullable(),
 	referralEarnings: z.string(),
+	paystackCustomerId: z.string().nullable(),
 });
 
 const projectSchema = z.object({

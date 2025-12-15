@@ -2124,14 +2124,15 @@ export interface paths {
                                 retentionLevel: "retain" | "none";
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
-                                autoTopUpEnabled: boolean;
-                                autoTopUpThreshold: string | null;
-                                autoTopUpAmount: string | null;
-                                referralEarnings: string;
-                            }[];
-                        };
-                    };
-                };
+	                                autoTopUpEnabled: boolean;
+	                                autoTopUpThreshold: string | null;
+	                                autoTopUpAmount: string | null;
+	                                referralEarnings: string;
+	                                paystackCustomerId: string | null;
+	                            }[];
+	                        };
+	                    };
+	                };
             };
         };
         put?: never;
@@ -2175,14 +2176,15 @@ export interface paths {
                                 retentionLevel: "retain" | "none";
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
-                                autoTopUpEnabled: boolean;
-                                autoTopUpThreshold: string | null;
-                                autoTopUpAmount: string | null;
-                                referralEarnings: string;
-                            };
-                        };
-                    };
-                };
+	                                autoTopUpEnabled: boolean;
+	                                autoTopUpThreshold: string | null;
+	                                autoTopUpAmount: string | null;
+	                                referralEarnings: string;
+	                                paystackCustomerId: string | null;
+	                            };
+	                        };
+	                    };
+	                };
             };
         };
         delete?: never;
@@ -2354,14 +2356,15 @@ export interface paths {
                                 retentionLevel: "retain" | "none";
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
-                                autoTopUpEnabled: boolean;
-                                autoTopUpThreshold: string | null;
-                                autoTopUpAmount: string | null;
-                                referralEarnings: string;
-                            };
-                        };
-                    };
-                };
+	                                autoTopUpEnabled: boolean;
+	                                autoTopUpThreshold: string | null;
+	                                autoTopUpAmount: string | null;
+	                                referralEarnings: string;
+	                                paystackCustomerId: string | null;
+	                            };
+	                        };
+	                    };
+	                };
                 /** @description Unauthorized. */
                 401: {
                     headers: {
