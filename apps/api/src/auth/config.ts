@@ -649,28 +649,30 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 						);
 					}
 
-					// Validate email for blocked domains and + sign
-					const body = ctx.body as { email?: string } | undefined;
-					if (body?.email) {
-						const emailValidation = validateEmail(body.email);
-						if (!emailValidation.valid) {
-							logger.warn("Signup blocked due to invalid email", {
-								ip: ipAddress,
-								reason: emailValidation.reason,
-							});
+					// Validate email for blocked domains and + sign (only in HOSTED mode)
+					if (isHosted) {
+						const body = ctx.body as { email?: string } | undefined;
+						if (body?.email) {
+							const emailValidation = validateEmail(body.email);
+							if (!emailValidation.valid) {
+								logger.warn("Signup blocked due to invalid email", {
+									ip: ipAddress,
+									reason: emailValidation.reason,
+								});
 
-							return new Response(
-								JSON.stringify({
-									error: "invalid_email",
-									message: emailValidation.message,
-								}),
-								{
-									status: 400,
-									headers: {
-										"Content-Type": "application/json",
+								return new Response(
+									JSON.stringify({
+										error: "invalid_email",
+										message: emailValidation.message,
+									}),
+									{
+										status: 400,
+										headers: {
+											"Content-Type": "application/json",
+										},
 									},
-								},
-							);
+								);
+							}
 						}
 					}
 				}
