@@ -392,11 +392,12 @@ function PaymentStep({
 			} else {
 				onSuccess();
 			}
-		} catch (error) {
-			console.error("Payment error:", error);
+		} catch (error: any) {
 			toast({
 				title: "Payment Failed",
-				description: "An error occurred while processing your payment.",
+				description:
+					(error as any).message ||
+					"An error occurred while processing your payment.",
 				variant: "destructive",
 			});
 			setLoading(false);
@@ -651,10 +652,11 @@ function ConfirmPaymentStep({
 			});
 			onSuccess();
 		} catch (error) {
-			console.error("Payment error:", error);
 			toast({
 				title: "Payment Failed",
-				description: "An error occurred while processing your payment.",
+				description:
+					(error as any)?.message ||
+					"An error occurred while processing your payment.",
 				variant: "destructive",
 			});
 			setLoading(false);
