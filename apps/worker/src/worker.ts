@@ -13,6 +13,7 @@ import {
 	log,
 	organization,
 	eq,
+	ne,
 	sql,
 	and,
 	lt,
@@ -43,10 +44,79 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
 	apiVersion: "2025-04-30.basil",
 });
 
+const DEFAULT_PAYSTACK_BASE_URL = "https://api.paystack.co";
+const PAYSTACK_BASE_URL =
+	process.env.PAYSTACK_API_URL ?? DEFAULT_PAYSTACK_BASE_URL;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
 const AUTO_TOPUP_LOCK_KEY = "auto_topup_check";
 const CREDIT_PROCESSING_LOCK_KEY = "credit_processing";
 const DATA_RETENTION_LOCK_KEY = "data_retention_cleanup";
 const LOCK_DURATION_MINUTES = 5;
+
+interface PaystackResponse<T> {
+	status: boolean;
+	message: string;
+	data: T;
+}
+
+interface PaystackChargeResponse {
+	status: string;
+	message: string;
+	reference: string;
+	amount: number;
+	currency: string;
+}
+
+async function paystackRequest<T>(
+	path: string,
+	{
+		method = "GET",
+		body,
+	}: { method?: string; body?: Record<string, unknown> } = {},
+): Promise<T> {
+	if (!PAYSTACK_SECRET_KEY) {
+		throw new Error("PAYSTACK_SECRET_KEY is not configured");
+	}
+
+	if (!PAYSTACK_BASE_URL.startsWith("http")) {
+		throw new Error("PAYSTACK_API_URL must be a valid http(s) URL");
+	}
+
+	const url = new URL(path, PAYSTACK_BASE_URL).toString();
+
+	const response = await fetch(url, {
+		method,
+		headers: {
+			Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+			Accept: "application/json",
+			...(body ? { "Content-Type": "application/json" } : {}),
+		},
+		body: body ? JSON.stringify(body) : undefined,
+	});
+
+	let payload: PaystackResponse<T>;
+	try {
+		payload = (await response.json()) as PaystackResponse<T>;
+	} catch (error) {
+		logger.error("Failed to parse Paystack response", error as Error);
+		throw new Error("Unable to parse Paystack response body");
+	}
+
+	if (!response.ok || !payload.status) {
+		const message =
+			payload?.message || `Paystack request failed (${response.status})`;
+		logger.error("Paystack request failed", {
+			status: response.status,
+			message,
+			path,
+			body,
+		});
+		throw new Error(message);
+	}
+
+	return payload.data;
+}
 
 // Configuration for batch processing
 const BATCH_SIZE = Number(process.env.CREDIT_BATCH_SIZE) || 100;
@@ -200,16 +270,6 @@ async function processAutoTopUp(): Promise<void> {
 					continue;
 				}
 
-				if (
-					defaultPaymentMethod.provider !== "stripe" ||
-					!defaultPaymentMethod.stripePaymentMethodId
-				) {
-					logger.info(
-						`Default payment method for organization ${org.id} is not a Stripe method, skipping auto top-up`,
-					);
-					continue;
-				}
-
 				const topUpAmount = Number(org.autoTopUpAmount || "10");
 
 				// Get the first user associated with this organization for email metadata
@@ -224,105 +284,274 @@ async function processAutoTopUp(): Promise<void> {
 					},
 				});
 
-				const stripePaymentMethod = await stripe.paymentMethods.retrieve(
-					defaultPaymentMethod.stripePaymentMethodId,
-				);
+				const billingEmail =
+					org.billingEmail ?? orgUser?.user?.email ?? undefined;
 
-				const cardCountry = stripePaymentMethod.card?.country;
+				if (defaultPaymentMethod.provider === "stripe") {
+					if (!defaultPaymentMethod.stripePaymentMethodId) {
+						logger.info(
+							`Default Stripe payment method for organization ${org.id} is missing an identifier, skipping auto top-up`,
+						);
+						continue;
+					}
 
-				// Use centralized fee calculator
-				const feeBreakdown = calculateFees({
-					amount: topUpAmount,
-					organizationPlan: org.plan,
-					cardCountry: cardCountry || undefined,
-					paymentProvider: "stripe",
-				});
+					if (!org.stripeCustomerId) {
+						logger.info(
+							`Organization ${org.id} is missing Stripe customer ID, skipping auto top-up`,
+						);
+						continue;
+					}
 
-				// Insert pending transaction before creating payment intent
-				const pendingTransaction = await db
-					.insert(tables.transaction)
-					.values({
-						organizationId: org.id,
-						type: "credit_topup",
-						creditAmount: feeBreakdown.baseAmount.toString(),
-						amount: feeBreakdown.totalAmount.toString(),
-						currency: "USD",
-						provider: "stripe",
-						status: "pending",
-						description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
-					})
-					.returning()
-					.then((rows) => rows[0]);
+					const stripePaymentMethod = await stripe.paymentMethods.retrieve(
+						defaultPaymentMethod.stripePaymentMethodId,
+					);
 
-				logger.info(
-					`Created pending transaction ${pendingTransaction.id} for organization ${org.id}`,
-				);
+					const cardCountry = stripePaymentMethod.card?.country;
 
-				try {
-					const paymentIntent = await stripe.paymentIntents.create({
-						amount: Math.round(feeBreakdown.totalAmount * 100),
-						currency: "usd",
-						description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
-						payment_method: defaultPaymentMethod.stripePaymentMethodId,
-						customer: org.stripeCustomerId!,
-						confirm: true,
-						off_session: true,
-						metadata: {
-							organizationId: org.id,
-							autoTopUp: "true",
-							transactionId: pendingTransaction.id,
-							baseAmount: feeBreakdown.baseAmount.toString(),
-							totalFees: feeBreakdown.totalFees.toString(),
-							...(orgUser?.user?.email && { userEmail: orgUser.user.email }),
-						},
+					// Use centralized fee calculator
+					const feeBreakdown = calculateFees({
+						amount: topUpAmount,
+						organizationPlan: org.plan,
+						cardCountry: cardCountry || undefined,
+						paymentProvider: "stripe",
 					});
 
-					// Update transaction with Stripe payment intent ID
-					await db
-						.update(tables.transaction)
-						.set({
-							stripePaymentIntentId: paymentIntent.id,
+					// Insert pending transaction before creating payment intent
+					const pendingTransaction = await db
+						.insert(tables.transaction)
+						.values({
+							organizationId: org.id,
+							type: "credit_topup",
+							creditAmount: feeBreakdown.baseAmount.toString(),
+							amount: feeBreakdown.totalAmount.toString(),
+							currency: "USD",
+							provider: "stripe",
+							status: "pending",
 							description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
 						})
-						.where(eq(tables.transaction.id, pendingTransaction.id));
+						.returning()
+						.then((rows) => rows[0]);
 
-					if (paymentIntent.status === "succeeded") {
-						logger.info(
-							`Auto top-up payment intent succeeded immediately for organization ${org.id}: $${topUpAmount}`,
-						);
-						// Note: The webhook will handle updating the transaction status and adding credits
-					} else if (paymentIntent.status === "requires_action") {
-						logger.info(
-							`Auto top-up requires action for organization ${org.id}: ${paymentIntent.status}`,
-						);
-					} else {
+					logger.info(
+						`Created pending transaction ${pendingTransaction.id} for organization ${org.id}`,
+					);
+
+					try {
+						const paymentIntent = await stripe.paymentIntents.create({
+							amount: Math.round(feeBreakdown.totalAmount * 100),
+							currency: "usd",
+							description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
+							payment_method: defaultPaymentMethod.stripePaymentMethodId,
+							customer: org.stripeCustomerId,
+							confirm: true,
+							off_session: true,
+							metadata: {
+								organizationId: org.id,
+								autoTopUp: "true",
+								transactionId: pendingTransaction.id,
+								baseAmount: feeBreakdown.baseAmount.toString(),
+								totalFees: feeBreakdown.totalFees.toString(),
+								...(billingEmail && { userEmail: billingEmail }),
+							},
+						});
+
+						// Update transaction with Stripe payment intent ID
+						await db
+							.update(tables.transaction)
+							.set({
+								stripePaymentIntentId: paymentIntent.id,
+								description: `Auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
+							})
+							.where(eq(tables.transaction.id, pendingTransaction.id));
+
+						if (paymentIntent.status === "succeeded") {
+							logger.info(
+								`Auto top-up payment intent succeeded immediately for organization ${org.id}: $${topUpAmount}`,
+							);
+							// Note: The webhook will handle updating the transaction status and adding credits
+						} else if (paymentIntent.status === "requires_action") {
+							logger.info(
+								`Auto top-up requires action for organization ${org.id}: ${paymentIntent.status}`,
+							);
+						} else {
+							logger.error(
+								`Auto top-up payment intent failed for organization ${org.id}: ${paymentIntent.status}`,
+							);
+							// Mark transaction as failed
+							await db
+								.update(tables.transaction)
+								.set({
+									status: "failed",
+									description: `Auto top-up failed: ${paymentIntent.status}`,
+								})
+								.where(eq(tables.transaction.id, pendingTransaction.id));
+						}
+					} catch (stripeError) {
 						logger.error(
-							`Auto top-up payment intent failed for organization ${org.id}: ${paymentIntent.status}`,
+							`Stripe error for organization ${org.id}`,
+							stripeError instanceof Error
+								? stripeError
+								: new Error(String(stripeError)),
 						);
 						// Mark transaction as failed
 						await db
 							.update(tables.transaction)
 							.set({
 								status: "failed",
-								description: `Auto top-up failed: ${paymentIntent.status}`,
+								description: `Auto top-up failed: ${stripeError instanceof Error ? stripeError.message : "Unknown error"}`,
 							})
 							.where(eq(tables.transaction.id, pendingTransaction.id));
 					}
-				} catch (stripeError) {
-					logger.error(
-						`Stripe error for organization ${org.id}`,
-						stripeError instanceof Error
-							? stripeError
-							: new Error(String(stripeError)),
-					);
-					// Mark transaction as failed
-					await db
-						.update(tables.transaction)
-						.set({
-							status: "failed",
-							description: `Auto top-up failed: ${stripeError instanceof Error ? stripeError.message : "Unknown error"}`,
+				} else if (defaultPaymentMethod.provider === "paystack") {
+					if (!defaultPaymentMethod.paystackAuthorizationCode) {
+						logger.info(
+							`Default Paystack payment method for organization ${org.id} is missing an authorization code, skipping auto top-up`,
+						);
+						continue;
+					}
+
+					if (!PAYSTACK_SECRET_KEY) {
+						logger.info(
+							`PAYSTACK_SECRET_KEY not configured, skipping Paystack auto top-up for organization ${org.id}`,
+						);
+						continue;
+					}
+
+					if (!billingEmail) {
+						logger.info(
+							`No billing email available for organization ${org.id}, skipping Paystack auto top-up`,
+						);
+						continue;
+					}
+
+					const channel =
+						defaultPaymentMethod.type === "mobile_money"
+							? "mobile_money"
+							: "card";
+
+					const feeBreakdown = calculateFees({
+						amount: topUpAmount,
+						organizationPlan: org.plan,
+						paymentProvider: "paystack",
+						channel,
+					});
+
+					const pendingTransaction = await db
+						.insert(tables.transaction)
+						.values({
+							organizationId: org.id,
+							type: "credit_topup",
+							creditAmount: feeBreakdown.baseAmount.toString(),
+							amount: feeBreakdown.totalAmount.toString(),
+							currency: "USD",
+							provider: "paystack",
+							status: "pending",
+							description: `Paystack auto top-up for ${topUpAmount} USD (total: ${feeBreakdown.totalAmount} including fees)`,
 						})
-						.where(eq(tables.transaction.id, pendingTransaction.id));
+						.returning()
+						.then((rows) => rows[0]);
+
+					logger.info(
+						`Created pending Paystack transaction ${pendingTransaction.id} for organization ${org.id}`,
+					);
+
+					try {
+						const charge = await paystackRequest<PaystackChargeResponse>(
+							"/transaction/charge_authorization",
+							{
+								method: "POST",
+								body: {
+									email: billingEmail,
+									amount: Math.round(feeBreakdown.totalAmount * 100),
+									currency: "USD",
+									authorization_code:
+										defaultPaymentMethod.paystackAuthorizationCode,
+									metadata: {
+										organizationId: org.id,
+										transactionId: pendingTransaction.id,
+										autoTopUp: true,
+										baseAmount: feeBreakdown.baseAmount,
+										feeBreakdown,
+										channel,
+										initiatedBy: "worker",
+									},
+									reference: pendingTransaction.id,
+								},
+							},
+						);
+
+						await db
+							.update(tables.transaction)
+							.set({
+								paystackReference: charge.reference,
+								description: `Paystack auto top-up for ${topUpAmount} USD (ref: ${charge.reference})`,
+							})
+							.where(eq(tables.transaction.id, pendingTransaction.id));
+
+						if (charge.status === "success") {
+							await db.transaction(async (tx) => {
+								const updated = await tx
+									.update(tables.transaction)
+									.set({
+										status: "completed",
+										amount: feeBreakdown.totalAmount.toString(),
+										creditAmount: feeBreakdown.baseAmount.toString(),
+										currency: (charge.currency || "USD").toUpperCase(),
+										paystackReference: charge.reference,
+										provider: "paystack",
+									})
+									.where(
+										and(
+											eq(tables.transaction.id, pendingTransaction.id),
+											ne(tables.transaction.status, "completed"),
+										),
+									)
+									.returning({ id: tables.transaction.id });
+
+								if (updated.length === 0) {
+									return;
+								}
+
+								await tx
+									.update(tables.organization)
+									.set({
+										credits: sql`${tables.organization.credits} + ${feeBreakdown.baseAmount}`,
+									})
+									.where(eq(tables.organization.id, org.id));
+							});
+
+							logger.info(
+								`Paystack auto top-up succeeded for organization ${org.id}: $${topUpAmount}`,
+							);
+						} else {
+							await db
+								.update(tables.transaction)
+								.set({
+									status: "failed",
+									description: `Paystack auto top-up failed: ${charge.status}`,
+								})
+								.where(eq(tables.transaction.id, pendingTransaction.id));
+						}
+					} catch (paystackError) {
+						logger.error(
+							`Paystack error for organization ${org.id}`,
+							paystackError instanceof Error
+								? paystackError
+								: new Error(String(paystackError)),
+						);
+						await db
+							.update(tables.transaction)
+							.set({
+								status: "failed",
+								description: `Paystack auto top-up failed: ${paystackError instanceof Error ? paystackError.message : "Unknown error"}`,
+							})
+							.where(eq(tables.transaction.id, pendingTransaction.id));
+					}
+				} else {
+					logger.info(
+						`Unsupported default payment method provider for organization ${org.id}, skipping auto top-up`,
+					);
+					continue;
 				}
 			} catch (error) {
 				logger.error(

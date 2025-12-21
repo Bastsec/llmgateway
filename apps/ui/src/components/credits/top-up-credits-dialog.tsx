@@ -124,6 +124,11 @@ export function TopUpCreditsDialog({ children }: TopUpCreditsDialogProps) {
 					<ConfirmPaymentStep
 						amount={amount}
 						paymentMethodId={selectedPaymentMethod!}
+						paymentProvider={
+							paymentMethodsData?.paymentMethods?.find(
+								(pm) => pm.id === selectedPaymentMethod,
+							)?.provider ?? "stripe"
+						}
 						onSuccess={() => setStep("success")}
 						onBack={() => setStep("select-payment")}
 						onCancel={handleClose}
@@ -527,10 +532,6 @@ function SelectPaymentStep({
 	onBack: () => void;
 	onCancel: () => void;
 }) {
-	const stripeMethods = paymentMethods.filter(
-		(method) => method.provider === "stripe",
-	);
-
 	return (
 		<>
 			<DialogHeader>
@@ -542,7 +543,7 @@ function SelectPaymentStep({
 			</DialogHeader>
 			<div className="space-y-4 py-4">
 				<div className="space-y-2">
-					{stripeMethods.map((method) => (
+					{paymentMethods.map((method) => (
 						<div
 							key={method.id}
 							className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${
@@ -562,6 +563,9 @@ function SelectPaymentStep({
 										{method.expiryMonth && method.expiryYear
 											? `${method.expiryMonth}/${method.expiryYear}`
 											: "—"}
+									</p>
+									<p className="text-xs text-muted-foreground capitalize">
+										{method.provider}
 									</p>
 								</div>
 								{method.isDefault && (
@@ -604,6 +608,7 @@ function SelectPaymentStep({
 function ConfirmPaymentStep({
 	amount,
 	paymentMethodId,
+	paymentProvider,
 	onSuccess,
 	onBack,
 	onCancel,
@@ -612,6 +617,7 @@ function ConfirmPaymentStep({
 }: {
 	amount: number;
 	paymentMethodId: string;
+	paymentProvider: "stripe" | "paystack";
 	onSuccess: () => void;
 	onBack: () => void;
 	onCancel: () => void;
@@ -621,9 +627,14 @@ function ConfirmPaymentStep({
 	const { toast } = useToast();
 	const { selectedOrganization } = useDashboardState();
 	const api = useApi();
-	const { mutateAsync: topUpMutation } = api.useMutation(
+
+	const { mutateAsync: topUpWithStripe } = api.useMutation(
 		"post",
 		"/payments/top-up-with-saved-method",
+	);
+	const { mutateAsync: topUpWithPaystack } = api.useMutation(
+		"post",
+		"/payments/paystack/top-up-with-saved-method",
 	);
 
 	const { data: feeData, isLoading: feeDataLoading } = api.useQuery(
@@ -660,9 +671,15 @@ function ConfirmPaymentStep({
 		setLoading(true);
 
 		try {
-			await topUpMutation({
-				body: { amount, paymentMethodId },
-			});
+			if (paymentProvider === "paystack") {
+				await topUpWithPaystack({
+					body: { amount, paymentMethodId },
+				});
+			} else {
+				await topUpWithStripe({
+					body: { amount, paymentMethodId },
+				});
+			}
 			onSuccess();
 		} catch (error) {
 			toast({

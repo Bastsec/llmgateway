@@ -11,6 +11,7 @@ import { CreditCard, Trash2, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/lib/components/button";
+import { Checkbox } from "@/lib/components/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -20,6 +21,15 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/lib/components/dialog";
+import { Input } from "@/lib/components/input";
+import { Label } from "@/lib/components/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/lib/components/select";
 import { toast } from "@/lib/components/use-toast";
 import { useApi } from "@/lib/fetch-client";
 import { useStripe } from "@/lib/stripe";
@@ -130,10 +140,16 @@ export function PaymentMethodsManagement() {
 								<CreditCard className="h-5 w-5" />
 								<div>
 									<p>
-										{method.cardBrand} •••• {method.cardLast4}
+										{method.cardBrand ?? "—"} •••• {method.cardLast4 ?? "—"}
 									</p>
 									<p className="text-sm text-muted-foreground">
-										Expires {method.expiryMonth}/{method.expiryYear}
+										Expires{" "}
+										{method.expiryMonth && method.expiryYear
+											? `${method.expiryMonth}/${method.expiryYear}`
+											: "—"}
+									</p>
+									<p className="text-xs text-muted-foreground capitalize">
+										{method.provider}
 									</p>
 								</div>
 								{method.isDefault && (
@@ -175,6 +191,7 @@ export function PaymentMethodsManagement() {
 
 function AddPaymentMethodDialog() {
 	const [open, setOpen] = useState(false);
+	const [provider, setProvider] = useState<"stripe" | "paystack">("stripe");
 	const { stripe, isLoading: stripeLoading } = useStripe();
 
 	return (
@@ -186,12 +203,33 @@ function AddPaymentMethodDialog() {
 				</Button>
 			</DialogTrigger>
 			<DialogContent>
-				{stripeLoading ? (
-					<div className="p-6 text-center">Loading payment form...</div>
+				<div className="flex gap-2 pb-2">
+					<Button
+						type="button"
+						variant={provider === "stripe" ? "default" : "outline"}
+						onClick={() => setProvider("stripe")}
+					>
+						Stripe
+					</Button>
+					<Button
+						type="button"
+						variant={provider === "paystack" ? "default" : "outline"}
+						onClick={() => setProvider("paystack")}
+					>
+						Paystack
+					</Button>
+				</div>
+
+				{provider === "stripe" ? (
+					stripeLoading ? (
+						<div className="p-6 text-center">Loading payment form...</div>
+					) : (
+						<Elements stripe={stripe}>
+							<AddPaymentMethodForm onSuccess={() => setOpen(false)} />
+						</Elements>
+					)
 				) : (
-					<Elements stripe={stripe}>
-						<AddPaymentMethodForm onSuccess={() => setOpen(false)} />
-					</Elements>
+					<AddPaystackPaymentMethodForm onSuccess={() => setOpen(false)} />
 				)}
 			</DialogContent>
 		</Dialog>
@@ -294,6 +332,117 @@ function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
 				<DialogFooter>
 					<Button type="submit" disabled={!stripe || loading}>
 						{loading ? "Adding..." : "Add Payment Method"}
+					</Button>
+				</DialogFooter>
+			</form>
+		</>
+	);
+}
+
+function AddPaystackPaymentMethodForm({
+	onSuccess,
+}: {
+	onSuccess: () => void;
+}) {
+	const api = useApi();
+	const [amount, setAmount] = useState(5);
+	const [channel, setChannel] = useState<"card" | "mobile_money">("card");
+	const [makeDefault, setMakeDefault] = useState(true);
+	const [loading, setLoading] = useState(false);
+
+	const { mutateAsync: initializePaystack } = api.useMutation(
+		"post",
+		"/payments/paystack/initialize-topup",
+	);
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setLoading(true);
+
+		try {
+			const { authorizationUrl } = await initializePaystack({
+				body: {
+					amount,
+					channel,
+					savePaymentMethod: true,
+					makeDefault,
+				},
+			});
+
+			window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+
+			toast({
+				title: "Continue in Paystack",
+				description:
+					"Complete the payment in the new tab to save this Paystack method.",
+			});
+
+			onSuccess();
+		} catch (error) {
+			toast({
+				title: "Error",
+				description:
+					error instanceof Error ? error.message : "Failed to start Paystack",
+				variant: "destructive",
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<>
+			<DialogHeader>
+				<DialogTitle>Add Paystack Method</DialogTitle>
+				<DialogDescription>
+					This creates a small top-up and saves the Paystack authorization for
+					future charges (including auto top-up).
+				</DialogDescription>
+			</DialogHeader>
+
+			<form onSubmit={handleSubmit} className="space-y-4 py-4">
+				<div className="space-y-2">
+					<Label htmlFor="paystack-amount">Amount (USD)</Label>
+					<Input
+						id="paystack-amount"
+						type="number"
+						min={5}
+						value={amount}
+						onChange={(e) => setAmount(Number(e.target.value))}
+					/>
+					<p className="text-xs text-muted-foreground">Minimum $5.</p>
+				</div>
+
+				<div className="space-y-2">
+					<Label htmlFor="paystack-channel">Channel</Label>
+					<Select
+						value={channel}
+						onValueChange={(value) =>
+							setChannel(value as "card" | "mobile_money")
+						}
+					>
+						<SelectTrigger id="paystack-channel">
+							<SelectValue placeholder="Select channel" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="card">Card</SelectItem>
+							<SelectItem value="mobile_money">Mobile Money</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+
+				<div className="flex items-center gap-2">
+					<Checkbox
+						id="paystack-default"
+						checked={makeDefault}
+						onCheckedChange={(checked) => setMakeDefault(Boolean(checked))}
+					/>
+					<Label htmlFor="paystack-default">Set as default</Label>
+				</div>
+
+				<DialogFooter>
+					<Button type="submit" disabled={loading || amount < 5}>
+						{loading ? "Starting..." : "Continue to Paystack"}
 					</Button>
 				</DialogFooter>
 			</form>

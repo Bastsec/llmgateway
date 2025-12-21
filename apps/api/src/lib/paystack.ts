@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { eq, sql, tables, db } from "@llmgateway/db";
+import { and, eq, ne, sql, tables, db } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 
 import { httpClient } from "./http-client.js";
@@ -369,7 +369,7 @@ export async function recordSuccessfulPaystackCharge({
 	metadata,
 }: SuccessfulChargeParams): Promise<void> {
 	await db.transaction(async (tx) => {
-		await tx
+		const updated = await tx
 			.update(tables.transaction)
 			.set({
 				status: "completed",
@@ -379,7 +379,24 @@ export async function recordSuccessfulPaystackCharge({
 				paystackReference: reference,
 				provider: "paystack",
 			})
-			.where(eq(tables.transaction.id, transactionId));
+			.where(
+				and(
+					eq(tables.transaction.id, transactionId),
+					ne(tables.transaction.status, "completed"),
+				),
+			)
+			.returning({
+				id: tables.transaction.id,
+			});
+
+		if (updated.length === 0) {
+			logger.info("Paystack charge already recorded; skipping", {
+				organizationId,
+				transactionId,
+				reference,
+			});
+			return;
+		}
 
 		await tx
 			.update(tables.organization)
@@ -450,7 +467,12 @@ export async function recordFailedPaystackCharge(
 			paystackReference: reference,
 			provider: "paystack",
 		})
-		.where(eq(tables.transaction.id, transactionId));
+		.where(
+			and(
+				eq(tables.transaction.id, transactionId),
+				ne(tables.transaction.status, "completed"),
+			),
+		);
 }
 
 export function coercePaystackMetadata(

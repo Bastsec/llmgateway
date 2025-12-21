@@ -34,17 +34,6 @@ function AutoTopUpSettings() {
 	const [threshold, setThreshold] = useState(10);
 	const [amount, setAmount] = useState(10);
 
-	const { data: feeData, isLoading: feeDataLoading } = api.useQuery(
-		"post",
-		"/payments/calculate-fees",
-		{
-			body: { amount },
-		},
-		{
-			enabled: amount >= 5,
-		},
-	);
-
 	useEffect(() => {
 		if (selectedOrganization) {
 			setEnabled(selectedOrganization.autoTopUpEnabled || false);
@@ -55,13 +44,36 @@ function AutoTopUpSettings() {
 
 	const updateOrganization = api.useMutation("patch", "/orgs/{id}");
 
-	const stripePaymentMethods =
-		paymentMethods?.paymentMethods?.filter(
-			(pm) => pm.provider === "stripe" && !!pm.stripePaymentMethodId,
-		) ?? [];
-	const hasPaymentMethods = stripePaymentMethods.length > 0;
-	const hasDefaultPaymentMethod = stripePaymentMethods.some(
-		(pm) => pm.isDefault,
+	const eligiblePaymentMethods =
+		paymentMethods?.paymentMethods?.filter((pm) => {
+			if (pm.provider === "stripe") {
+				return Boolean(pm.stripePaymentMethodId);
+			}
+			if (pm.provider === "paystack") {
+				return Boolean(pm.paystackAuthorizationCode);
+			}
+			return false;
+		}) ?? [];
+
+	const defaultPaymentMethod =
+		eligiblePaymentMethods.find((pm) => pm.isDefault) ?? null;
+	const hasPaymentMethods = eligiblePaymentMethods.length > 0;
+	const hasDefaultPaymentMethod = Boolean(defaultPaymentMethod);
+
+	const { data: feeData, isLoading: feeDataLoading } = api.useQuery(
+		"post",
+		"/payments/calculate-fees",
+		{
+			body: {
+				amount,
+				...(defaultPaymentMethod?.id
+					? { paymentMethodId: defaultPaymentMethod.id }
+					: {}),
+			},
+		},
+		{
+			enabled: amount >= 5 && Boolean(defaultPaymentMethod),
+		},
 	);
 
 	const handleSave = async () => {

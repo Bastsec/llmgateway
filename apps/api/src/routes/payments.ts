@@ -402,15 +402,21 @@ payments.openapi(setDefaultPaymentMethod, async (c) => {
 		});
 	}
 
-	if (paymentMethod.provider !== "stripe") {
+	if (
+		paymentMethod.provider === "stripe" &&
+		!paymentMethod.stripePaymentMethodId
+	) {
 		throw new HTTPException(400, {
-			message: "Only Stripe payment methods are supported for saved top-ups",
+			message: "Stripe payment method identifier missing",
 		});
 	}
 
-	if (!paymentMethod.stripePaymentMethodId) {
+	if (
+		paymentMethod.provider === "paystack" &&
+		!paymentMethod.paystackAuthorizationCode
+	) {
 		throw new HTTPException(400, {
-			message: "Stripe payment method identifier missing",
+			message: "Paystack authorization code missing",
 		});
 	}
 
