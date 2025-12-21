@@ -1,6 +1,39 @@
-name: llmgateway-unified-external-db
+name: llmgateway-unified-vm
 
 services:
+  postgres:
+    container_name: llmgateway-postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pw}
+      POSTGRES_DB: ${POSTGRES_DB:-llmgateway}
+    volumes:
+      - llmgateway_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-llmgateway}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    container_name: llmgateway-redis
+    image: redis:8
+    command: ["redis-server", "--protected-mode", "yes", "--bind", "0.0.0.0"]
+    restart: unless-stopped
+    volumes:
+      - llmgateway_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   llmgateway:
     build:
       context: .
@@ -9,6 +42,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env.external-db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     # Fallback: environment variables can also be set directly or via shell export
     ports:
       - "3002:3002" # UI
@@ -16,12 +54,9 @@ services:
       - "3005:3005" # Docs
       - "4001:4001" # Gateway
       - "4002:4002" # API
-      - "6379:6379" # Redis (internal)
-    volumes:
-      - llmgateway_redis:/var/lib/redis
     environment:
-      # Database connection (external PostgreSQL)
-      - DATABASE_URL=${DATABASE_URL}
+      # Database connection (local PostgreSQL by default; can be overridden)
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-pw}@postgres:5432/${POSTGRES_DB:-llmgateway}}
 
       # URLs (update for your domain in production)
       - UI_URL=${UI_URL:-http://localhost:3002}
@@ -58,10 +93,8 @@ services:
       - LLM_AZURE_API_VERSION=${LLM_AZURE_API_VERSION:-2024-10-21}
       - LLM_AZURE_DEPLOYMENT_TYPE=${LLM_AZURE_DEPLOYMENT_TYPE:-ai-foundry}
 
-      # Redis (internal)
-      - REDIS_HOST=localhost
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      # Redis (local by default; can be overridden)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
 
       # CI environment
       - CI=${CI}
@@ -70,5 +103,7 @@ services:
       - RUN_MIGRATIONS=true
 
 volumes:
+  llmgateway_postgres:
+    driver: local
   llmgateway_redis:
     driver: local
