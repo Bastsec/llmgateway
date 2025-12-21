@@ -13,6 +13,7 @@ import {
 } from "@/lib/components/dialog";
 import { Label } from "@/lib/components/label";
 import { Switch } from "@/lib/components/switch";
+import { useToast } from "@/lib/components/use-toast";
 import { useApi } from "@/lib/fetch-client";
 
 interface UpgradeToProDialogProps {
@@ -45,6 +46,7 @@ function UpgradeDialogContent({
 	const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
 		initialBillingCycle,
 	);
+	const { toast } = useToast();
 
 	const api = useApi();
 	const createSubscriptionMutation = api.useMutation(
@@ -64,7 +66,14 @@ function UpgradeDialogContent({
 
 			// Redirect to Stripe Checkout
 			window.location.href = checkoutUrl;
-		} catch {
+		} catch (error: any) {
+			toast({
+				title: "Error",
+				description:
+					(error as any)?.message ||
+					"Failed to start checkout. Please try again.",
+				variant: "destructive",
+			});
 			setLoading(false);
 		}
 	};

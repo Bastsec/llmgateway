@@ -1,5 +1,6 @@
 import { publishToQueue, LOG_QUEUE } from "@llmgateway/cache";
 import { UnifiedFinishReason, type LogInsertData } from "@llmgateway/db";
+import { logger } from "@llmgateway/logger";
 
 import type { InferInsertModel } from "@llmgateway/db";
 import type { log } from "@llmgateway/db";
@@ -57,9 +58,17 @@ export function getUnifiedFinishReason(
 				finishReason === "PROHIBITED_CONTENT" ||
 				finishReason === "RECITATION" ||
 				finishReason === "BLOCKLIST" ||
-				finishReason === "SPII"
+				finishReason === "SPII" ||
+				finishReason === "LANGUAGE" ||
+				finishReason === "IMAGE_SAFETY" ||
+				finishReason === "IMAGE_PROHIBITED_CONTENT" ||
+				finishReason === "IMAGE_OTHER" ||
+				finishReason === "NO_IMAGE"
 			) {
 				return UnifiedFinishReason.CONTENT_FILTER;
+			}
+			if (finishReason === "OTHER") {
+				return UnifiedFinishReason.UNKNOWN;
 			}
 			break;
 		default: // OpenAI format (also used by inference.net and other providers)
@@ -126,6 +135,18 @@ export async function insertLog(logData: LogInsertData): Promise<unknown> {
 				logData.finishReason,
 				logData.usedProvider,
 			);
+
+			if (
+				logData.unifiedFinishReason === UnifiedFinishReason.UNKNOWN &&
+				logData.finishReason
+			) {
+				logger.error("Unknown finish reason encountered", {
+					requestId: logData.requestId,
+					finishReason: logData.finishReason,
+					provider: logData.usedProvider,
+					model: logData.usedModel,
+				});
+			}
 		}
 	}
 	await publishToQueue(LOG_QUEUE, logData);

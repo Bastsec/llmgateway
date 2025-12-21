@@ -273,14 +273,13 @@ function AmountStep({
 								)}
 								{feeData.planFee > 0 && (
 									<div className="flex justify-between">
-										<span>Service fee (5% - Free plan)</span>
+										<span>
+											Service fee (
+											{selectedOrganization?.plan === "pro" ? "2.5%" : "5%"} -{" "}
+											{selectedOrganization?.plan === "pro" ? "Pro" : "Free"}{" "}
+											plan)
+										</span>
 										<span>${feeData.planFee.toFixed(2)}</span>
-									</div>
-								)}
-								{selectedOrganization?.plan === "pro" && (
-									<div className="flex justify-between text-green-600">
-										<span>Service fee (Pro plan)</span>
-										<span>$0.00</span>
 									</div>
 								)}
 								<div className="border-t pt-1 flex justify-between font-medium">
@@ -396,11 +395,12 @@ function PaymentStep({
 			} else {
 				onSuccess();
 			}
-		} catch (error) {
-			console.error("Payment error:", error);
+		} catch (error: any) {
 			toast({
 				title: "Payment Failed",
-				description: "An error occurred while processing your payment.",
+				description:
+					(error as any).message ||
+					"An error occurred while processing your payment.",
 				variant: "destructive",
 			});
 			setLoading(false);
@@ -665,10 +665,11 @@ function ConfirmPaymentStep({
 			});
 			onSuccess();
 		} catch (error) {
-			console.error("Payment error:", error);
 			toast({
 				title: "Payment Failed",
-				description: "An error occurred while processing your payment.",
+				description:
+					(error as any)?.message ||
+					"An error occurred while processing your payment.",
 				variant: "destructive",
 			});
 			setLoading(false);
@@ -723,17 +724,15 @@ function ConfirmPaymentStep({
 							)}
 							{feeData.planFee > 0 && (
 								<div className="flex justify-between">
-									<span>Service fee (5% - Free plan)</span>
+									<span>
+										Service fee (
+										{selectedOrganization?.plan === "pro" ? "2.5%" : "5%"} -{" "}
+										{selectedOrganization?.plan === "pro" ? "Pro" : "Free"}{" "}
+										plan)
+									</span>
 									<span>${feeData.planFee.toFixed(2)}</span>
 								</div>
 							)}
-							{selectedOrganization?.plan === "pro" &&
-								feeData.planFee === 0 && (
-									<div className="flex justify-between text-green-600">
-										<span>Service fee (Pro plan)</span>
-										<span>$0.00</span>
-									</div>
-								)}
 							<div className="border-t pt-2 flex justify-between font-medium">
 								<span>Total</span>
 								<span>${feeData.totalAmount.toFixed(2)}</span>

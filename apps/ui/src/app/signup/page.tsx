@@ -23,18 +23,29 @@ import {
 } from "@/lib/components/form";
 import { Input } from "@/lib/components/input";
 import { toast } from "@/lib/components/use-toast";
+import { useAppConfig } from "@/lib/config";
 
-const formSchema = z.object({
-	name: z.string().min(2, {
-		message: "Name is required",
-	}),
-	email: z.string().email({
-		message: "Please enter a valid email address",
-	}),
-	password: z.string().min(8, {
-		message: "Password must be at least 8 characters",
-	}),
-});
+const createFormSchema = (isHosted: boolean) =>
+	z.object({
+		name: z.string().min(2, {
+			message: "Name is required",
+		}),
+		email: isHosted
+			? z
+					.string()
+					.email({
+						message: "Please enter a valid email address",
+					})
+					.refine((email) => !email.split("@")[0]?.includes("+"), {
+						message: "Email addresses with '+' are not allowed",
+					})
+			: z.string().email({
+					message: "Please enter a valid email address",
+				}),
+		password: z.string().min(8, {
+			message: "Password must be at least 8 characters",
+		}),
+	});
 
 export default function Signup() {
 	const queryClient = useQueryClient();
@@ -42,6 +53,9 @@ export default function Signup() {
 	const posthog = usePostHog();
 	const [isLoading, setIsLoading] = useState(false);
 	const { signUp, signIn } = useAuth();
+	const config = useAppConfig();
+
+	const formSchema = createFormSchema(config.hosted);
 
 	// Redirect to dashboard if already authenticated
 	useUser({

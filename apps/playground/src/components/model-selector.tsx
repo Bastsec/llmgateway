@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import * as React from "react";
 
-import { getProviderIcon, providerLogoUrls } from "@/components/provider-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +48,11 @@ import {
 	getProviderForModel,
 } from "@/lib/model-utils";
 import { cn } from "@/lib/utils";
+
+import {
+	getProviderIcon,
+	providerLogoUrls,
+} from "@llmgateway/shared/components";
 
 import type {
 	ModelDefinition,
@@ -336,9 +340,12 @@ export function ModelSelector({
 	const selectedProviderDef = providers.find(
 		(p) => p.id === selectedProviderId,
 	);
+	const selectedMapping = selectedModel?.providers.find(
+		(p) => p.providerId === selectedProviderId,
+	);
 	const selectedEntryKey =
-		selectedModel && selectedProviderId
-			? `${selectedProviderId}-${selectedModel.id}`
+		selectedModel && selectedProviderId && selectedMapping
+			? `${selectedProviderId}-${selectedModel.id}-${selectedMapping.modelName}`
 			: selectedModel
 				? selectedModel.id
 				: "";
@@ -877,14 +884,14 @@ export function ModelSelector({
 											{filteredEntries.length !== 1 ? "s" : ""} found
 										</div>
 										{filteredEntries.map(
-											({ model, mapping, provider, isRoot }) => {
+											({ model, mapping, provider, isRoot }, index) => {
 												if (isRoot) {
 													const entryKey = model.id;
 													const aggregate = getRootAggregateInfo(model);
 													const isFreeRoot = aggregate.minInputPrice === 0;
 													return (
 														<CommandItem
-															key={entryKey}
+															key={`${entryKey}-${index}`}
 															value={entryKey}
 															onMouseEnter={() =>
 																setPreviewEntry({
@@ -947,7 +954,7 @@ export function ModelSelector({
 												const ProviderIcon = provider
 													? getProviderIcon(provider.id)
 													: null;
-												const entryKey = `${mapping!.providerId}-${model.id}`;
+												const entryKey = `${mapping!.providerId}-${model.id}-${mapping!.modelName}`;
 												const isUnstable = isModelUnstable(mapping!, model);
 												const isDeprecated =
 													mapping!.deprecatedAt &&
@@ -984,7 +991,7 @@ export function ModelSelector({
 														<div className="flex items-center justify-between w-[250px] md:w-full gap-2">
 															<div className="flex items-center gap-2 min-w-0 flex-1">
 																{ProviderIcon ? (
-																	<ProviderIcon className="h-6 w-6 shrink-0" />
+																	<ProviderIcon className="h-6 w-6 shrink-0 dark:text-white" />
 																) : null}
 																<div className="flex flex-col min-w-0 flex-1">
 																	<div className="flex items-center gap-1">
@@ -1052,7 +1059,7 @@ export function ModelSelector({
 															backgroundColor: `${previewEntry.provider?.color}15`,
 														}}
 													>
-														<ProviderIcon className="h-5 w-5" />
+														<ProviderIcon className="h-5 w-5 dark:text-white" />
 													</div>
 												) : null;
 											})()}
@@ -1380,7 +1387,7 @@ export function ModelSelector({
 													backgroundColor: `${selectedDetails.provider?.color}15`,
 												}}
 											>
-												<ProviderIcon className="h-6 w-6" />
+												<ProviderIcon className="h-6 w-6 dark:text-white" />
 											</div>
 										) : null;
 									})()}

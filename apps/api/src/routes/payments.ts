@@ -75,6 +75,15 @@ payments.openapi(createPaymentIntent, async (c) => {
 			message: "Unauthorized",
 		});
 	}
+
+	// Require email verification before buying credits
+	if (!user.emailVerified) {
+		throw new HTTPException(403, {
+			message:
+				"Email verification required. Please check your inbox or tap 'Resend Email' in the dashboard.",
+		});
+	}
+
 	const { amount } = c.req.valid("json");
 
 	const userOrganization = await db.query.userOrganization.findFirst({
@@ -146,6 +155,14 @@ payments.openapi(createSetupIntent, async (c) => {
 	if (!user) {
 		throw new HTTPException(401, {
 			message: "Unauthorized",
+		});
+	}
+
+	// Require email verification before adding a card
+	if (!user.emailVerified) {
+		throw new HTTPException(403, {
+			message:
+				"Email verification required. Please check your inbox or tap 'Resend Email' in the dashboard.",
 		});
 	}
 
@@ -523,6 +540,14 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 	if (!user) {
 		throw new HTTPException(401, {
 			message: "Unauthorized",
+		});
+	}
+
+	// Require email verification before buying credits
+	if (!user.emailVerified) {
+		throw new HTTPException(403, {
+			message:
+				"Email verification required. Please check your inbox or tap 'Resend Email' in the dashboard.",
 		});
 	}
 

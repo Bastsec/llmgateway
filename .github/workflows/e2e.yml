@@ -5,6 +5,7 @@ on:
     paths:
       - "apps/gateway/**"
       - "packages/models/**"
+      - "packages/shared/**"
       - "**/*.e2e.ts"
       - ".github/workflows/e2e.yml"
 
@@ -80,7 +81,7 @@ jobs:
 
       - name: Upload shard results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-results-${{ matrix.shard }}
           path: e2e-results-${{ matrix.shard }}.blob
@@ -115,7 +116,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download all shard results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: ./e2e-results
           pattern: e2e-results-*
