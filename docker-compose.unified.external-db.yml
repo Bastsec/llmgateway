@@ -3,12 +3,12 @@ name: llmgateway-unified-external-db
 services:
   llmgateway:
     build:
-      context: ..
+      context: .
       dockerfile: infra/unified.external-db.dockerfile
     container_name: llmgateway-local
     restart: unless-stopped
     env_file:
-      - ../.env.external-db
+      - .env.external-db
     # Fallback: environment variables can also be set directly or via shell export
     ports:
       - "3002:3002" # UI
