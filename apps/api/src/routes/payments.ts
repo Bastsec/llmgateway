@@ -37,6 +37,11 @@ const feeBreakdownSchema = z.object({
 	totalFees: z.number(),
 	totalAmount: z.number(),
 	paymentProvider: z.enum(["stripe", "paystack"]),
+	bonusAmount: z.number().optional(),
+	finalCreditAmount: z.number().optional(),
+	bonusEnabled: z.boolean().optional(),
+	bonusEligible: z.boolean().optional(),
+	bonusIneligibilityReason: z.string().optional(),
 });
 
 const createPaymentIntent = createRoute({

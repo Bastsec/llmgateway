@@ -113,6 +113,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/paystack/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Webhook receipt acknowledgement */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            received: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/beacon": {
         parameters: {
             query?: never;
@@ -2128,6 +2165,7 @@ export interface paths {
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
                                 referralEarnings: string;
+                                paystackCustomerId: string | null;
                             }[];
                         };
                     };
@@ -2179,6 +2217,7 @@ export interface paths {
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
                                 referralEarnings: string;
+                                paystackCustomerId: string | null;
                             };
                         };
                     };
@@ -2358,6 +2397,7 @@ export interface paths {
                                 autoTopUpThreshold: string | null;
                                 autoTopUpAmount: string | null;
                                 referralEarnings: string;
+                                paystackCustomerId: string | null;
                             };
                         };
                     };
@@ -2765,13 +2805,16 @@ export interface paths {
                         "application/json": {
                             paymentMethods: {
                                 id: string;
-                                stripePaymentMethodId: string;
+                                /** @enum {string} */
+                                provider: "stripe" | "paystack";
+                                stripePaymentMethodId: string | null;
+                                paystackAuthorizationCode: string | null;
                                 type: string;
                                 isDefault: boolean;
-                                cardBrand?: string;
-                                cardLast4?: string;
-                                expiryMonth?: number;
-                                expiryYear?: number;
+                                cardBrand: string | null;
+                                cardLast4: string | null;
+                                expiryMonth: number | null;
+                                expiryYear: number | null;
                             }[];
                         };
                     };
@@ -2912,6 +2955,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payments/paystack/initialize-topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        amount: number;
+                        /** @enum {string} */
+                        channel?: "card" | "mobile_money";
+                        savePaymentMethod?: boolean;
+                        makeDefault?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Initialized Paystack transaction */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uri */
+                            authorizationUrl: string;
+                            reference: string;
+                            accessCode: string;
+                            feeBreakdown: {
+                                baseAmount: number;
+                                providerFee: number;
+                                internationalFee: number;
+                                planFee: number;
+                                totalFees: number;
+                                totalAmount: number;
+                                /** @enum {string} */
+                                paymentProvider: "stripe" | "paystack";
+                                bonusAmount?: number;
+                                finalCreditAmount?: number;
+                                bonusEnabled?: boolean;
+                                bonusEligible?: boolean;
+                                bonusIneligibilityReason?: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/paystack/top-up-with-saved-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        amount: number;
+                        paymentMethodId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Charged Paystack saved payment method */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            reference: string;
+                            feeBreakdown: {
+                                baseAmount: number;
+                                providerFee: number;
+                                internationalFee: number;
+                                planFee: number;
+                                totalFees: number;
+                                totalAmount: number;
+                                /** @enum {string} */
+                                paymentProvider: "stripe" | "paystack";
+                                bonusAmount?: number;
+                                finalCreditAmount?: number;
+                                bonusEnabled?: boolean;
+                                bonusEligible?: boolean;
+                                bonusIneligibilityReason?: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/payments/calculate-fees": {
         parameters: {
             query?: never;
@@ -2933,6 +3101,10 @@ export interface paths {
                     "application/json": {
                         amount: number;
                         paymentMethodId?: string;
+                        /** @enum {string} */
+                        paymentProvider?: "stripe" | "paystack";
+                        /** @enum {string} */
+                        channel?: "card" | "mobile_money";
                     };
                 };
             };
@@ -2945,15 +3117,17 @@ export interface paths {
                     content: {
                         "application/json": {
                             baseAmount: number;
-                            stripeFee: number;
+                            providerFee: number;
                             internationalFee: number;
                             planFee: number;
                             totalFees: number;
                             totalAmount: number;
+                            /** @enum {string} */
+                            paymentProvider: "stripe" | "paystack";
                             bonusAmount?: number;
                             finalCreditAmount?: number;
-                            bonusEnabled: boolean;
-                            bonusEligible: boolean;
+                            bonusEnabled?: boolean;
+                            bonusEligible?: boolean;
                             bonusIneligibilityReason?: string;
                         };
                     };
