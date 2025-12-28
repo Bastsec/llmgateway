@@ -6,11 +6,9 @@ services:
       context: .
       dockerfile: infra/unified.external-db.dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-local}
+        APP_VERSION: ${APP_VERSION:-prod}
     container_name: llmgateway-external-db
     restart: unless-stopped
-    env_file:
-      - .env.external-db
     ports:
       - "3002:3002" # UI
       - "3003:3003" # Playground
@@ -21,54 +19,43 @@ services:
     volumes:
       - llmgateway_redis:/var/lib/redis
     environment:
-      # Database connection (external PostgreSQL)
-      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in .env.external-db}
-
-      # URLs (update for your domain in production)
-      - UI_URL=${UI_URL:-http://localhost:3002}
-      - PLAYGROUND_URL=${PLAYGROUND_URL:-http://localhost:3003}
-      - API_URL=${API_URL:-http://localhost:4002}
-      - API_BACKEND_URL=${API_BACKEND_URL:-http://localhost:4002}
-      - ORIGIN_URLS=${ORIGIN_URLS:-http://localhost:3002,http://localhost:3003,http://localhost:4002}
-      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-localhost}
-
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      # Redis (internal bundled)
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # URLs
+      UI_URL: ${UI_URL}
+      PLAYGROUND_URL: ${PLAYGROUND_URL}
+      API_URL: ${API_URL}
+      API_BACKEND_URL: ${API_BACKEND_URL}
+      ORIGIN_URLS: ${ORIGIN_URLS}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
       # Authentication
-      - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}
-      - PASSKEY_RP_NAME=${PASSKEY_RP_NAME:-LLMGateway}
-      - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET in .env.external-db}
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
-
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID}
+      PASSKEY_RP_NAME: ${PASSKEY_RP_NAME}
+      AUTH_SECRET: ${AUTH_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       # Analytics (optional)
-      - POSTHOG_KEY=${POSTHOG_KEY:-}
-      - POSTHOG_HOST=${POSTHOG_HOST:-}
-
-      # Stripe (optional)
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
-      - STRIPE_PRO_MONTHLY_PRICE_ID=${STRIPE_PRO_MONTHLY_PRICE_ID:-}
-      - STRIPE_PRO_YEARLY_PRICE_ID=${STRIPE_PRO_YEARLY_PRICE_ID:-}
-
+      POSTHOG_KEY: ${POSTHOG_KEY}
+      POSTHOG_HOST: ${POSTHOG_HOST}
+      # Paystack (payments)
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY}
+      PAYSTACK_WEBHOOK_SECRET: ${PAYSTACK_WEBHOOK_SECRET}
+      PAYSTACK_API_URL: ${PAYSTACK_API_URL}
       # LLM Provider API Keys
-      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY:-}
-      - LLM_ANTHROPIC_API_KEY=${LLM_ANTHROPIC_API_KEY:-}
-
-      # Azure OpenAI Configuration
-      - LLM_AZURE_API_KEY=${LLM_AZURE_API_KEY:?Set LLM_AZURE_API_KEY in .env.external-db}
-      - LLM_AZURE_RESOURCE=${LLM_AZURE_RESOURCE:?Set LLM_AZURE_RESOURCE in .env.external-db}
-      - LLM_AZURE_API_VERSION=${LLM_AZURE_API_VERSION:-2024-10-21}
-      - LLM_AZURE_DEPLOYMENT_TYPE=${LLM_AZURE_DEPLOYMENT_TYPE:-ai-foundry}
-
-      # Redis (internal)
-      - REDIS_HOST=localhost
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-
-      # CI environment
-      - CI=${CI}
-
-      # Run migrations on API startup
-      - RUN_MIGRATIONS=true
+      LLM_OPENAI_API_KEY: ${LLM_OPENAI_API_KEY}
+      LLM_ANTHROPIC_API_KEY: ${LLM_ANTHROPIC_API_KEY}
+      # Azure OpenAI
+      LLM_AZURE_API_KEY: ${LLM_AZURE_API_KEY}
+      LLM_AZURE_RESOURCE: ${LLM_AZURE_RESOURCE}
+      LLM_AZURE_API_VERSION: ${LLM_AZURE_API_VERSION}
+      LLM_AZURE_DEPLOYMENT_TYPE: ${LLM_AZURE_DEPLOYMENT_TYPE}
+      # Migrations
+      RUN_MIGRATIONS: "true"
 
 volumes:
   llmgateway_redis:
