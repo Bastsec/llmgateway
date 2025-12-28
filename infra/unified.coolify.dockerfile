@@ -49,7 +49,7 @@ WORKDIR /app
 ENV CI=true
 ENV FORCE_COLOR=0
 
-COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json ./
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
