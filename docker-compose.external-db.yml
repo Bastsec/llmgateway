@@ -4,7 +4,7 @@ services:
   llmgateway:
     build:
       context: .
-      dockerfile: infra/unified.external-db.dockerfile
+      dockerfile: infra/unified.coolify.dockerfile
       args:
         APP_VERSION: ${APP_VERSION:-prod}
     container_name: llmgateway-external-db
