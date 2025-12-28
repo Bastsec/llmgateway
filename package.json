@@ -2,7 +2,6 @@
 	"name": "llmgateway",
 	"private": true,
 	"license": "SEE LICENSE IN LICENSE",
-	"packageManager": "pnpm@10.14.0",
 	"workspaces": [
 		"apps/*",
 		"packages/*"
@@ -61,6 +60,7 @@
 		"vite-tsconfig-paths": "^5.1.4",
 		"vitest": "^4.0.5"
 	},
+	"packageManager": "pnpm@10.14.0",
 	"disabledLinters": [
 		"eslint-plugin-tailwindcss"
 	]
