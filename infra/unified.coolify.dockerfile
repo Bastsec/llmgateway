@@ -45,51 +45,82 @@ RUN cat .tool-versions | cut -d' ' -f1 | grep "^[^\#]" | xargs -i asdf plugin ad
 FROM base-builder AS deps
 WORKDIR /app
 
+# Set CI mode to prevent interactive prompts
+ENV CI=true
+ENV FORCE_COLOR=0
+
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# Install all dependencies (no cache mount for compatibility)
-RUN pnpm install --frozen-lockfile
+# Install all dependencies with verbose output
+RUN echo "=== Starting pnpm install ===" && \
+    pnpm install --frozen-lockfile 2>&1 && \
+    echo "=== pnpm install completed ===" || \
+    (echo "=== pnpm install FAILED ===" && exit 1)
 
 # Build API
 FROM deps AS build-api
 WORKDIR /app
-RUN pnpm run build --filter=api --force
+ENV CI=true
+RUN echo "=== Building API ===" && \
+    pnpm run build --filter=api --force 2>&1 && \
+    echo "=== API build completed ===" || \
+    (echo "=== API build FAILED ===" && cat /app/apps/api/.turbo/*.log 2>/dev/null || true && exit 1)
 RUN pnpm --filter=api --prod deploy --legacy /app/api-dist
 
 # Build Gateway
 FROM deps AS build-gateway
 WORKDIR /app
-RUN pnpm run build --filter=gateway --force
+ENV CI=true
+RUN echo "=== Building Gateway ===" && \
+    pnpm run build --filter=gateway --force 2>&1 && \
+    echo "=== Gateway build completed ===" || \
+    (echo "=== Gateway build FAILED ===" && exit 1)
 RUN pnpm --filter=gateway --prod deploy --legacy /app/gateway-dist
 
 # Build Worker
 FROM deps AS build-worker
 WORKDIR /app
-RUN pnpm run build --filter=worker --force
+ENV CI=true
+RUN echo "=== Building Worker ===" && \
+    pnpm run build --filter=worker --force 2>&1 && \
+    echo "=== Worker build completed ===" || \
+    (echo "=== Worker build FAILED ===" && exit 1)
 RUN pnpm --filter=worker --prod deploy --legacy /app/worker-dist
 
 # Build UI (Next.js standalone)
 FROM deps AS build-ui
 WORKDIR /app
+ENV CI=true
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm run build --filter=ui --force
+RUN echo "=== Building UI ===" && \
+    pnpm run build --filter=ui --force 2>&1 && \
+    echo "=== UI build completed ===" || \
+    (echo "=== UI build FAILED ===" && exit 1)
 
 # Build Playground (Next.js standalone)
 FROM deps AS build-playground
 WORKDIR /app
+ENV CI=true
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm run build --filter=playground --force
+RUN echo "=== Building Playground ===" && \
+    pnpm run build --filter=playground --force 2>&1 && \
+    echo "=== Playground build completed ===" || \
+    (echo "=== Playground build FAILED ===" && exit 1)
 
 # Build Docs (Next.js standalone)
 FROM deps AS build-docs
 WORKDIR /app
+ENV CI=true
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm run build --filter=docs --force
+RUN echo "=== Building Docs ===" && \
+    pnpm run build --filter=docs --force 2>&1 && \
+    echo "=== Docs build completed ===" || \
+    (echo "=== Docs build FAILED ===" && exit 1)
 
 # Runtime base
 FROM debian:12-slim AS runtime
