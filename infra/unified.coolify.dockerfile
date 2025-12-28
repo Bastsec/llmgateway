@@ -1,7 +1,9 @@
 # Coolify-compatible Dockerfile (no experimental syntax)
+# Builds each app separately for better error visibility
+
 FROM debian:12-slim AS base-builder
 
-# Install base dependencies including tini for better caching
+# Install base dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     curl \
@@ -29,48 +31,69 @@ RUN ARCH=$(uname -m) && \
     tar -xzf /tmp/asdf.tar.gz -C $ASDF_DIR && \
     rm /tmp/asdf.tar.gz
 
-# Create app directory
 WORKDIR /app
-
 COPY .tool-versions ./
 
 # Install asdf plugins and tools
 RUN cat .tool-versions | cut -d' ' -f1 | grep "^[^\#]" | xargs -i asdf plugin add  {} && \
     asdf install && \
     asdf reshim && \
-    echo "Final versions installed:" && \
-    node -v && \
-    pnpm -v
+    echo "Node version:" && node -v && \
+    echo "PNPM version:" && pnpm -v
 
-# Single unified builder stage (builds everything at once)
-FROM base-builder AS unified-builder
+# Dependencies stage - install all deps once
+FROM base-builder AS deps
 WORKDIR /app
 
-# Copy package files first for better caching
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# Install all dependencies
+# Install all dependencies (no cache mount for compatibility)
 RUN pnpm install --frozen-lockfile
 
-# Build all applications
-RUN pnpm run build --filter=api --force && \
-    pnpm run build --filter=gateway --force && \
-    pnpm run build --filter=ui --force && \
-    pnpm run build --filter=playground --force && \
-    pnpm run build --filter=docs --force && \
-    pnpm run build --filter=worker --force
+# Build API
+FROM deps AS build-api
+WORKDIR /app
+RUN pnpm run build --filter=api --force
+RUN pnpm --filter=api --prod deploy --legacy /app/api-dist
 
-# Prepare production deployments
-RUN pnpm --filter=api --prod deploy --legacy /app/api-dist && \
-    pnpm --filter=gateway --prod deploy --legacy /app/gateway-dist && \
-    pnpm --filter=worker --prod deploy --legacy /app/worker-dist
+# Build Gateway
+FROM deps AS build-gateway
+WORKDIR /app
+RUN pnpm run build --filter=gateway --force
+RUN pnpm --filter=gateway --prod deploy --legacy /app/gateway-dist
+
+# Build Worker
+FROM deps AS build-worker
+WORKDIR /app
+RUN pnpm run build --filter=worker --force
+RUN pnpm --filter=worker --prod deploy --legacy /app/worker-dist
+
+# Build UI (Next.js standalone)
+FROM deps AS build-ui
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN pnpm run build --filter=ui --force
+
+# Build Playground (Next.js standalone)
+FROM deps AS build-playground
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN pnpm run build --filter=playground --force
+
+# Build Docs (Next.js standalone)
+FROM deps AS build-docs
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN pnpm run build --filter=docs --force
 
 # Runtime base
 FROM debian:12-slim AS runtime
 
-# Install base runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     supervisor \
@@ -78,23 +101,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy asdf and tini from builder
 COPY --from=base-builder /root/.asdf /root/.asdf
 COPY --from=base-builder /usr/bin/tini /tini
 COPY --from=base-builder /app/.tool-versions ./.tool-versions
 
 ENV ASDF_DIR=/root/.asdf
 ENV ASDF_DATA_DIR=${ASDF_DIR}
-
-WORKDIR /app
-
-# Configure PATH to use asdf shims
 ENV PATH="${ASDF_DIR}:${ASDF_DIR}/shims:$PATH"
 
+WORKDIR /app
 ENTRYPOINT ["/tini", "--"]
-
-ARG APP_VERSION
-ENV APP_VERSION=$APP_VERSION
 
 # Final unified stage for external DB
 FROM runtime AS unified-external-db
@@ -107,23 +123,23 @@ COPY --from=base-builder /root/.asdf /root/.asdf
 COPY --from=base-builder /app/.tool-versions /app/.tool-versions
 
 # Copy API
-COPY --from=unified-builder /app/api-dist /app/api
-COPY --from=unified-builder /app/packages/db/migrations /app/api/migrations
+COPY --from=build-api /app/api-dist /app/api
+COPY --from=build-api /app/packages/db/migrations /app/api/migrations
 
 # Copy Gateway
-COPY --from=unified-builder /app/gateway-dist /app/gateway
+COPY --from=build-gateway /app/gateway-dist /app/gateway
 
 # Copy Worker
-COPY --from=unified-builder /app/worker-dist /app/worker
+COPY --from=build-worker /app/worker-dist /app/worker
 
 # Copy UI (Next.js standalone)
-COPY --from=unified-builder /app/apps/ui/.next/standalone /app/ui
+COPY --from=build-ui /app/apps/ui/.next/standalone /app/ui
 
 # Copy Playground (Next.js standalone)
-COPY --from=unified-builder /app/apps/playground/.next/standalone /app/playground
+COPY --from=build-playground /app/apps/playground/.next/standalone /app/playground
 
 # Copy Docs (Next.js standalone)
-COPY --from=unified-builder /app/apps/docs/.next/standalone /app/docs
+COPY --from=build-docs /app/apps/docs/.next/standalone /app/docs
 
 # Copy supervisor configuration
 COPY infra/supervisord.external-db.conf /etc/supervisor/conf.d/supervisord.conf
@@ -140,22 +156,18 @@ RUN mkdir -p /var/log/supervisor /var/lib/redis && \
 # Expose all ports
 EXPOSE 3002 3003 3005 4001 4002 6379
 
-# Set asdf environment variables
+# Set environment
 ENV ASDF_DIR=/root/.asdf
 ENV ASDF_DATA_DIR=/root/.asdf
 ENV PATH="/root/.asdf:/root/.asdf/shims:$PATH"
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV REDIS_HOST=localhost
 ENV REDIS_PORT=6379
 ENV TELEMETRY_ACTIVE=true
 
-# Use tini as init system
 ENTRYPOINT ["/tini", "--"]
 
 ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
 
-# Start services
 CMD ["/start.sh"]
