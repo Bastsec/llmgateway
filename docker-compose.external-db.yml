@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-llmgateway}
     volumes:
       - llmgateway_postgres:/var/lib/postgresql/data
@@ -40,7 +40,7 @@ services:
       - llmgateway_redis:/var/lib/redis
     environment:
       # Database - use the postgres container
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-llmgateway}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-llmgateway}
       # Redis (internal bundled)
       REDIS_HOST: localhost
       REDIS_PORT: "6379"
